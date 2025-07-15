@@ -1,6 +1,6 @@
 
 import { createClient, SupabaseClient, AuthError } from '@supabase/supabase-js';
-import { Trip, AnyUser, Profile } from '../types';
+import { Trip, Profile } from '../types';
 
 // Define the database types for better type safety with Supabase
 export type Database = {
@@ -9,7 +9,7 @@ export type Database = {
       trips: {
         Row: Trip; // The type of a row in your 'trips' table
         Insert: Omit<Trip, 'id' | 'created_at'>; // The type to use for inserting a new row
-        Update: Partial<Omit<Trip, 'id' | 'created_at'>>; // The type to use for updating a row
+        Update: Partial<Trip>; // The type to use for updating a row
       };
       profiles: {
         Row: Profile;
@@ -26,16 +26,11 @@ export type Database = {
   };
 };
 
-const mockError = (message: string): AuthError => ({
-    message,
-    name: 'MockAuthError',
-    status: 500,
-    code: 'MOCK_ERROR',
-    __isAuthError: true,
-} as unknown as AuthError);
-
-
 // --- Supabase Client Initialization ---
+
+// IMPORTANT: Replace these with your actual Supabase project URL and public anon key.
+const supabaseUrl = 'YOUR_SUPABASE_URL_HERE';
+const supabaseAnonKey = 'YOUR_SUPABASE_ANON_KEY_HERE';
 
 let supabaseInstance: SupabaseClient<Database>;
 
@@ -43,29 +38,26 @@ let supabaseInstance: SupabaseClient<Database>;
 // It prevents any initialization error from crashing the entire application.
 (() => {
     try {
-        // Safely get environment variables
-        let url: string | undefined;
-        let key: string | undefined;
-        if (typeof process !== 'undefined' && typeof process.env === 'object' && process.env !== null) {
-            url = process.env.SUPABASE_URL;
-            key = process.env.SUPABASE_ANON_KEY;
-        }
-
-        // Validate variables. They must exist and be non-empty strings.
-        if (!url || !key) {
-            throw new Error("Supabase credentials not found or are empty.");
+        // We check if the credentials are still the placeholder values.
+        if (supabaseUrl.startsWith('YOUR_') || supabaseAnonKey.startsWith('YOUR_')) {
+          throw new Error("Supabase credentials are set to placeholder values.");
         }
         
         // This is the critical step. Attempt to create the client.
         // If the URL is invalid, createClient() will throw an error which is caught below.
-        const realClient = createClient<Database>(url, key);
-        
-        // If we reach here, the client was created successfully.
-        supabaseInstance = realClient;
+        supabaseInstance = createClient<Database>(supabaseUrl, supabaseAnonKey);
         
     } catch (error: any) {
         // If ANY error occurs during the try block, we fall back to the mock client.
         console.warn(`Supabase client initialization failed: ${error.message}. Using a mock client to allow the app to load.`);
+
+        const mockError = (message: string): AuthError => ({
+            message,
+            name: 'MockAuthError',
+            status: 500,
+            code: 'MOCK_ERROR',
+            __isAuthError: true,
+        } as unknown as AuthError);
 
         // This robust mock client creates a new "thenable" builder for each .from() call,
         // preventing state leakage between different queries and fixing potential crashes.

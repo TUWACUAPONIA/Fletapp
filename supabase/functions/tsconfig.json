@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    // These options are recommended for Deno
+    "lib": ["deno.ns", "dom"],
+    "module": "esnext",
+    "target": "esnext",
+    
+    // This allows TypeScript to understand URL imports
+    "moduleResolution": "bundler",
+    
+    // Standard TypeScript settings
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true,
+    "allowJs": true,
+
+    // If you use JSX in Deno (e.g., with Hono), you might need these
+    "jsx": "react-jsx",
+    "jsxImportSource": "https://deno.land/x/hono/jsx"
+  },
+  // This ensures this configuration only applies to the functions directory
+  "include": ["./**/*.ts"],
+  "exclude": ["../../node_modules"]
+}
