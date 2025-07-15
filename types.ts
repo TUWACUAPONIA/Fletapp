@@ -27,6 +27,7 @@ export interface Driver extends User {
   capacity_m3: number;
   service_radius_km: number;
   photo_url: string;
+  cbu?: number | null;
 }
 
 export interface Customer extends User {
@@ -35,6 +36,7 @@ export interface Customer extends User {
 
 export interface Profile extends User {
   role: UserRole;
+  cbu?: number | null;
   vehicle?: string | null;
   capacity_kg?: number | null;
   capacity_m3?: number | null;
