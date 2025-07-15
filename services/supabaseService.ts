@@ -29,8 +29,8 @@ export type Database = {
 // --- Supabase Client Initialization ---
 
 // IMPORTANT: Replace these with your actual Supabase project URL and public anon key.
-const supabaseUrl = 'YOUR_SUPABASE_URL_HERE';
-const supabaseAnonKey = 'YOUR_SUPABASE_ANON_KEY_HERE';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 let supabaseInstance: SupabaseClient<Database>;
 
