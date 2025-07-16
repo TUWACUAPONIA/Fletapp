@@ -5,6 +5,7 @@
 
 
 
+
 import React, { useContext, useState, useMemo, useEffect, useRef } from 'react';
 import { AppContext } from '../../AppContext';
 import { UserRole, Trip, TripStatus, Driver, VehicleType, NewTrip } from '../../types';
@@ -70,6 +71,7 @@ const CustomerDashboard: React.FC = () => {
     setIsLoading(true);
     await context?.createTrip(newTrip as NewTrip);
     setNewTrip({});
+    setIsLoading(false);
   };
 
   return (
