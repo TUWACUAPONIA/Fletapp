@@ -1,7 +1,13 @@
 
-import React, { useContext, useState, useMemo, useEffect } from 'react';
-import { AppContext } from '../../App';
-import { UserRole, Trip, TripStatus, Driver } from '../../types';
+
+
+
+
+
+
+import React, { useContext, useState, useMemo, useEffect, useRef } from 'react';
+import { AppContext } from '../../AppContext';
+import { UserRole, Trip, TripStatus, Driver, VehicleType, NewTrip } from '../../types';
 import { Button, Input, Card, Icon, Spinner, SkeletonCard } from '../ui';
 import { getTripEstimates } from '../../services/geminiService';
 
@@ -11,7 +17,7 @@ const SectionHeader: React.FC<{children: React.ReactNode, className?: string, st
 
 const CustomerDashboard: React.FC = () => {
   const context = useContext(AppContext);
-  const [newTrip, setNewTrip] = useState<Partial<Omit<Trip, 'id' | 'customer_id' | 'driver_id' | 'status'>>>({});
+  const [newTrip, setNewTrip] = useState<Partial<NewTrip>>({});
   const [isCalculating, setIsCalculating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -34,11 +40,11 @@ const CustomerDashboard: React.FC = () => {
     const estimates = await getTripEstimates(newTrip.origin, newTrip.destination, newTrip.cargo_details);
     if (estimates) {
       const { distanceKm, estimatedDriveTimeMin, estimatedLoadTimeMin, estimatedUnloadTimeMin } = estimates;
-      const totalMinutes = estimatedDriveTimeMin + estimatedLoadTimeMin + estimatedUnloadTimeMin;
+      const totalMinutes = (estimatedDriveTimeMin || 0) + (estimatedLoadTimeMin || 0) + (estimatedUnloadTimeMin || 0);
       // Pricing logic rounds up to the next full hour.
       const totalHours = Math.ceil(totalMinutes / 60);
       const timeCost = totalHours * 22000;
-      const distanceBonus = distanceKm > 30 ? 20000 : 0;
+      const distanceBonus = (distanceKm || 0) > 30 ? 20000 : 0;
       const price = timeCost + distanceBonus;
 
       setNewTrip(prev => ({ 
@@ -62,7 +68,7 @@ const CustomerDashboard: React.FC = () => {
         return;
     }
     setIsLoading(true);
-    await context?.createTrip(newTrip as Omit<Trip, 'id' | 'customer_id' | 'driver_id' | 'status'>);
+    await context?.createTrip(newTrip as NewTrip);
     setNewTrip({});
   };
 
@@ -136,22 +142,42 @@ const DriverDashboard: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   
   const availableTrips = useMemo(() => {
-    if (!context || !driver || driver.role !== UserRole.DRIVER) return [];
-    return context.trips.filter(trip => 
-        trip.status === TripStatus.REQUESTED &&
-        trip.estimated_weight_kg <= driver.capacity_kg &&
-        trip.estimated_volume_m3 <= driver.capacity_m3
-    );
+    if (!context || !driver || driver.role !== 'driver') return [];
+    
+    return context.trips.filter(trip => {
+      // A driver must have capacity and vehicle type defined to see trips.
+      if (driver.capacity_kg == null || driver.capacity_m3 == null || driver.vehicle_type == null) {
+        return false;
+      }
+      
+      const meetsCapacity = trip.estimated_weight_kg <= driver.capacity_kg && trip.estimated_volume_m3 <= driver.capacity_m3;
+      
+      // Retro-compatibility: if suitable_vehicle_types is not set, show the trip.
+      const isVehicleTypeMatch = !trip.suitable_vehicle_types || trip.suitable_vehicle_types.length === 0 || trip.suitable_vehicle_types.includes(driver.vehicle_type);
+
+      return trip.status === 'requested' && meetsCapacity && isVehicleTypeMatch;
+    });
   }, [context, driver]);
+  
+  const prevAvailableTripsCount = useRef(availableTrips.length);
+
+  useEffect(() => {
+      // Bell sound for driver when a new trip is available
+      if (availableTrips.length > prevAvailableTripsCount.current) {
+          const audio = new Audio('https://storage.googleapis.com/gold-dev-web/codelabs/sound-effects/notification-chime.mp3');
+          audio.play().catch(e => console.error("Error playing notification sound:", e));
+      }
+      prevAvailableTripsCount.current = availableTrips.length;
+  }, [availableTrips.length]);
 
   const myTrips = useMemo(() => {
       if (!context || !driver) return [];
-      return context.trips.filter(t => t.driver_id === driver.id && [TripStatus.ACCEPTED, TripStatus.IN_TRANSIT].includes(t.status));
+      return context.trips.filter(t => t.driver_id === driver.id && (t.status === 'accepted' || t.status === 'in_transit'));
   }, [context, driver]);
   
   const completedTrips = useMemo(() => {
       if (!context || !driver) return [];
-      return context.trips.filter(t => t.driver_id === driver.id && [TripStatus.COMPLETED, TripStatus.PAID].includes(t.status));
+      return context.trips.filter(t => t.driver_id === driver.id && (t.status === 'completed' || t.status === 'paid'));
   }, [context, driver]);
   
   useEffect(() => {
@@ -173,7 +199,7 @@ const DriverDashboard: React.FC = () => {
                             availableTrips.map((trip, index) => <TripCard key={trip.id} trip={trip} animationDelay={`${0.3 + index * 0.05}s`} />)
                         ) : (
                           <div className="staggered-child" style={{animationDelay: '0.3s'}}>
-                            <Card><p className="text-center text-slate-400">No hay viajes disponibles que coincidan con tu capacidad.</p></Card>
+                            <Card><p className="text-center text-slate-400">No hay viajes disponibles que coincidan con tu capacidad y tipo de vehículo.</p></Card>
                           </div>
                         )}
                     </div>
@@ -217,7 +243,7 @@ const TripCard: React.FC<{ trip: Trip, animationDelay?: string }> = ({ trip, ani
     const user = context?.user;
     const [isAccepting, setIsAccepting] = useState(false);
     
-    const isLink = user?.role === UserRole.CUSTOMER || (user?.role === UserRole.DRIVER && trip.status !== TripStatus.REQUESTED);
+    const isLink = user?.role === 'customer' || (user?.role === 'driver' && trip.status !== 'requested');
 
     const handleClick = () => {
         if (isLink) {
@@ -236,18 +262,18 @@ const TripCard: React.FC<{ trip: Trip, animationDelay?: string }> = ({ trip, ani
     
     const getStatusChip = (status: TripStatus) => {
         const styles: {[key in TripStatus]: string} = {
-            [TripStatus.REQUESTED]: 'bg-amber-500/10 text-amber-300 border-amber-500/20',
-            [TripStatus.ACCEPTED]: 'bg-blue-500/10 text-blue-300 border-blue-500/20',
-            [TripStatus.IN_TRANSIT]: 'bg-indigo-500/10 text-indigo-300 border-indigo-500/20',
-            [TripStatus.COMPLETED]: 'bg-green-500/10 text-green-300 border-green-500/20',
-            [TripStatus.PAID]: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20',
+            'requested': 'bg-amber-500/10 text-amber-300 border-amber-500/20',
+            'accepted': 'bg-blue-500/10 text-blue-300 border-blue-500/20',
+            'in_transit': 'bg-indigo-500/10 text-indigo-300 border-indigo-500/20',
+            'completed': 'bg-green-500/10 text-green-300 border-green-500/20',
+            'paid': 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20',
         };
         const labels: {[key in TripStatus]: string} = {
-            [TripStatus.REQUESTED]: 'Solicitado',
-            [TripStatus.ACCEPTED]: 'Aceptado',
-            [TripStatus.IN_TRANSIT]: 'En Viaje',
-            [TripStatus.COMPLETED]: 'Completado',
-            [TripStatus.PAID]: 'Pagado',
+            'requested': 'Solicitado',
+            'accepted': 'Aceptado',
+            'in_transit': 'En Viaje',
+            'completed': 'Completado',
+            'paid': 'Pagado',
         };
         return <span className={`px-3 py-1 text-xs font-bold rounded-full border ${styles[status]}`}>{labels[status].toUpperCase()}</span>;
     }
@@ -271,7 +297,7 @@ const TripCard: React.FC<{ trip: Trip, animationDelay?: string }> = ({ trip, ani
                     </div>
                     <p className="text-xl font-bold text-green-400 mt-2 sm:mt-0">${trip.price?.toLocaleString()}</p>
                 </div>
-                {user?.role === UserRole.DRIVER && trip.status === TripStatus.REQUESTED && (
+                {user?.role === 'driver' && trip.status === 'requested' && (
                     <div className="mt-4 pt-4 border-t border-slate-800">
                         <Button onClick={handleAccept} className="w-full" isLoading={isAccepting}>Aceptar Viaje</Button>
                     </div>
@@ -290,7 +316,7 @@ const DashboardView: React.FC = () => {
     <div className="container mx-auto p-4 md:p-8">
       <h2 className="text-4xl font-bold mb-2 text-slate-100 staggered-child" style={{animationDelay: '0.1s'}}>Hola, <span className="fletapp-text-gradient bg-gradient-to-r from-amber-300 to-orange-500">{context.user.full_name}!</span></h2>
       <p className="text-slate-400 mb-8 staggered-child" style={{animationDelay: '0.2s'}}>Bienvenido a tu panel de control.</p>
-      {context.user.role === UserRole.CUSTOMER ? <CustomerDashboard /> : <DriverDashboard />}
+      {context.user.role === 'customer' ? <CustomerDashboard /> : <DriverDashboard />}
     </div>
   );
 };

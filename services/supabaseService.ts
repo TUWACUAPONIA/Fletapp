@@ -1,21 +1,164 @@
 
-import { createClient, SupabaseClient, AuthError } from '@supabase/supabase-js';
-import { Trip, Profile } from '../types';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+
+// Enums refactored to simple string literal types for better type compatibility and to resolve TS errors.
+export type VehicleType = 'Furgoneta' | 'Furgón' | 'Pick UP' | 'Camión ligero' | 'Camión pesado';
+export type UserRole = 'customer' | 'driver';
+export type TripStatus = 'requested' | 'accepted' | 'in_transit' | 'completed' | 'paid';
+
 
 // Define the database types for better type safety with Supabase
 export type Database = {
   public: {
     Tables: {
       trips: {
-        Row: Trip; // The type of a row in your 'trips' table
-        Insert: Omit<Trip, 'id' | 'created_at'>; // The type to use for inserting a new row
-        Update: Partial<Trip>; // The type to use for updating a row
+        Row: {
+          id: number;
+          customer_id: string;
+          driver_id: string | null;
+          origin: string;
+          destination:string;
+          cargo_details: string;
+          estimated_weight_kg: number;
+          estimated_volume_m3: number;
+          distance_km: number | null;
+          estimated_drive_time_min: number | null;
+          estimated_load_time_min: number | null;
+          estimated_unload_time_min: number | null;
+          driver_arrival_time_min: number | null;
+          price: number | null;
+          status: TripStatus;
+          suitable_vehicle_types: VehicleType[] | null;
+          start_time: string | null;
+          final_duration_min: number | null;
+          final_price: number | null;
+          created_at: string | null;
+        };
+        Insert: {
+          customer_id: string;
+          driver_id?: string | null;
+          origin: string;
+          destination: string;
+          cargo_details: string;
+          estimated_weight_kg: number;
+          estimated_volume_m3: number;
+          distance_km?: number | null;
+          estimated_drive_time_min?: number | null;
+          estimated_load_time_min?: number | null;
+          estimated_unload_time_min?: number | null;
+          price?: number | null;
+          status: TripStatus;
+          suitable_vehicle_types?: VehicleType[] | null;
+        };
+        Update: {
+          customer_id?: string;
+          driver_id?: string | null;
+          origin?: string;
+          destination?: string;
+          cargo_details?: string;
+          estimated_weight_kg?: number;
+          estimated_volume_m3?: number;
+          distance_km?: number | null;
+          estimated_drive_time_min?: number | null;
+          estimated_load_time_min?: number | null;
+          estimated_unload_time_min?: number | null;
+          driver_arrival_time_min?: number | null;
+          price?: number | null;
+          status?: TripStatus;
+          suitable_vehicle_types?: VehicleType[] | null;
+          start_time?: string | null;
+          final_duration_min?: number | null;
+          final_price?: number | null;
+        };
       };
       profiles: {
-        Row: Profile;
-        Insert: Profile;
-        Update: Partial<Profile>;
-      }
+        Row: {
+          id: string;
+          email: string;
+          full_name: string;
+          dni: string;
+          phone: string;
+          address: string;
+          role: UserRole;
+          vehicle: string | null;
+          vehicle_type: VehicleType | null;
+          capacity_kg: number | null;
+          capacity_m3: number | null;
+          service_radius_km: number | null;
+          photo_url: string | null;
+          payment_info: string | null;
+        };
+        Insert: {
+            id: string;
+            email: string;
+            full_name: string;
+            dni: string;
+            phone: string;
+            address: string;
+            role: UserRole;
+            vehicle?: string | null;
+            vehicle_type?: VehicleType | null;
+            capacity_kg?: number | null;
+            capacity_m3?: number | null;
+            service_radius_km?: number | null;
+            photo_url?: string | null;
+            payment_info?: string | null;
+        };
+        Update: {
+          email?: string;
+          full_name?: string;
+          dni?: string;
+          phone?: string;
+          address?: string;
+          role?: UserRole;
+          vehicle?: string | null;
+          vehicle_type?: VehicleType | null;
+          capacity_kg?: number | null;
+          capacity_m3?: number | null;
+          service_radius_km?: number | null;
+          photo_url?: string | null;
+          payment_info?: string | null;
+        };
+      };
+      chat_messages: {
+        Row: {
+          id: number;
+          trip_id: number;
+          sender_id: string;
+          content: string;
+          created_at: string;
+        };
+        Insert: {
+          trip_id: number;
+          sender_id: string;
+          content: string;
+        };
+        Update: {
+          content?: string;
+        };
+      };
+      reviews: {
+        Row: {
+          id: number;
+          trip_id: number;
+          reviewer_id: string; // customer's id
+          driver_id: string;
+          rating: number; // 1 to 5
+          comment: string;
+          created_at: string;
+        };
+        Insert: {
+          trip_id: number;
+          reviewer_id: string;
+          driver_id: string;
+          rating: number;
+          comment: string;
+        };
+        Update: {
+          rating?: number;
+          comment?: string;
+        };
+      };
     };
     Views: {
       [_ in never]: never;
@@ -23,82 +166,26 @@ export type Database = {
     Functions: {
       [_ in never]: never;
     };
+    Enums: {
+      [_ in never]: never;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
+    };
   };
 };
 
 // --- Supabase Client Initialization ---
 
-// IMPORTANT: Replace these with your actual Supabase project URL and public anon key.
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseUrl = 'https://xgzsfxngiurjxkxxbmdo.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhnenNmeG5naXVyanhreHhibWRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI1Nzk5MDIsImV4cCI6MjA2ODE1NTkwMn0.jRHz4iyo213_w9Rh33nDe_Mj53oz9FQOIjmcJ8wQy7g';
 
-let supabaseInstance: SupabaseClient<Database>;
+if (!supabaseUrl || !supabaseKey) {
+  // In a real app, you'd want a more robust way to handle this,
+  // maybe showing an error page, but for this context, throwing is fine.
+  throw new Error("Supabase URL or Key is not defined. Please check your environment variables.");
+}
 
-// This self-invoking function robustly initializes either the real or mock client.
-// It prevents any initialization error from crashing the entire application.
-(() => {
-    try {
-        // We check if the credentials are still the placeholder values.
-        if (supabaseUrl.startsWith('YOUR_') || supabaseAnonKey.startsWith('YOUR_')) {
-          throw new Error("Supabase credentials are set to placeholder values.");
-        }
-        
-        // This is the critical step. Attempt to create the client.
-        // If the URL is invalid, createClient() will throw an error which is caught below.
-        supabaseInstance = createClient<Database>(supabaseUrl, supabaseAnonKey);
-        
-    } catch (error: any) {
-        // If ANY error occurs during the try block, we fall back to the mock client.
-        console.warn(`Supabase client initialization failed: ${error.message}. Using a mock client to allow the app to load.`);
-
-        const mockError = (message: string): AuthError => ({
-            message,
-            name: 'MockAuthError',
-            status: 500,
-            code: 'MOCK_ERROR',
-            __isAuthError: true,
-        } as unknown as AuthError);
-
-        // This robust mock client creates a new "thenable" builder for each .from() call,
-        // preventing state leakage between different queries and fixing potential crashes.
-        const createMockPostgrestBuilder = () => {
-            let promise: Promise<{ data: any; error: any; }> = Promise.resolve({ data: [], error: null });
-
-            const builder = {
-                select: () => builder,
-                insert: (data: any) => {
-                    promise = Promise.resolve({ data: [data], error: null });
-                    return builder;
-                },
-                update: () => builder,
-                order: () => builder,
-                eq: () => builder,
-                single: () => {
-                    promise = promise.then(res => ({ ...res, data: res.data?.[0] || null }));
-                    return builder;
-                },
-                then: (onFulfilled: any, onRejected: any) => promise.then(onFulfilled, onRejected),
-                catch: (onRejected: any) => promise.catch(onRejected),
-                finally: (onFinally: any) => promise.finally(onFinally),
-            };
-            return builder;
-        };
-
-        supabaseInstance = {
-            from: () => createMockPostgrestBuilder() as any,
-            auth: {
-                onAuthStateChange: (_callback: any) => ({ data: { subscription: { unsubscribe: () => {} } } }),
-                getSession: () => Promise.resolve({ data: { session: null }, error: null }),
-                signInWithPassword: () => Promise.resolve({ data: { user: null, session: null }, error: mockError('Supabase no está configurado.') }),
-                signUp: () => Promise.resolve({ data: { user: null, session: null }, error: mockError('Supabase no está configurado.') }),
-                signOut: () => Promise.resolve({ error: null }),
-            },
-            functions: {
-                invoke: () => Promise.resolve({ data: null, error: { message: 'Supabase no está configurado.' } })
-            }
-        } as unknown as SupabaseClient<Database>;
-    }
-})();
-
-
-export const supabase = supabaseInstance;
+// Create and export the Supabase client, correctly typed with the Database definition.
+// This is the standard and recommended way to initialize the client.
+export const supabase: SupabaseClient<Database> = createClient<Database>(supabaseUrl, supabaseKey);

@@ -1,4 +1,6 @@
+
 import { supabase } from './supabaseService';
+import { VehicleType } from '../types';
 
 export interface TripEstimate {
   distanceKm: number;
@@ -65,6 +67,34 @@ export const getDriverEta = async (
     return data.etaMinutes ?? null;
   } catch (err) {
     console.error('Error invoking Supabase function for driver ETA:', err);
+    return null;
+  }
+};
+
+/**
+ * Calls a secure backend function to get suitable vehicle types for a given cargo.
+ * @param cargoDetails A description of the cargo.
+ * @returns A promise that resolves to an array of suitable VehicleType strings or null.
+ */
+export const getSuitableVehicleTypes = async (
+  cargoDetails: string
+): Promise<VehicleType[] | null> => {
+  try {
+    const { data, error } = await supabase.functions.invoke('gemini-proxy', {
+      body: {
+        action: 'getSuitableVehicleTypes',
+        payload: { cargoDetails }
+      },
+    });
+
+    if (error) {
+      throw error;
+    }
+    
+    // The data from the function is { suitableVehicleTypes: [...] }
+    return data.suitableVehicleTypes ?? null;
+  } catch (err) {
+    console.error('Error invoking Supabase function for suitable vehicle types:', err);
     return null;
   }
 };

@@ -1,8 +1,11 @@
 
+
+
+
 import React, { useState, useContext, useRef } from 'react';
-import { AppContext } from '../../App';
-import { UserRole, Driver, Customer, AnyUser, Profile } from '../../types';
-import { Button, Input, Card, Icon } from '../ui';
+import { AppContext } from '../../AppContext';
+import { UserRole, Driver, Customer, Profile, VehicleType } from '../../types';
+import { Button, Input, Card, Icon, Select } from '../ui';
 
 const OnboardingView: React.FC = () => {
   const context = useContext(AppContext);
@@ -40,8 +43,9 @@ const OnboardingView: React.FC = () => {
     }
 
     const baseUser = {
-      email: data.email as string,
       full_name: data.full_name as string,
+      dni: data.dni as string,
+      email: data.email as string,
       phone: data.phone as string,
       address: data.address as string,
     };
@@ -49,16 +53,25 @@ const OnboardingView: React.FC = () => {
     const userToRegister = role === 'driver'
       ? {
           ...baseUser,
-          role: UserRole.DRIVER,
+          role: 'driver' as UserRole,
           vehicle: data.vehicle as string,
+          vehicle_type: data.vehicle_type as VehicleType,
           capacity_kg: Number(data.capacity_kg),
           capacity_m3: Number(data.capacity_m3),
           service_radius_km: Number(data.service_radius_km),
           photo_url: photoPreview || `https://ui-avatars.com/api/?name=${encodeURIComponent(baseUser.full_name)}&background=0f172a&color=fff&size=200`,
+          payment_info: data.payment_info as string,
         }
       : {
           ...baseUser,
-          role: UserRole.CUSTOMER,
+          role: 'customer' as UserRole,
+          vehicle: null,
+          vehicle_type: null,
+          capacity_kg: null,
+          capacity_m3: null,
+          service_radius_km: null,
+          photo_url: null,
+          payment_info: null,
         };
 
     const authError = await context.registerUser(userToRegister as Omit<Profile, 'id'>, data.password as string);
@@ -106,6 +119,14 @@ const OnboardingView: React.FC = () => {
     );
   }
 
+  const vehicleTypeOptions = [
+    { value: 'Furgoneta', label: 'Furgoneta' },
+    { value: 'Furgón', label: 'Furgón' },
+    { value: 'Pick UP', label: 'Pick UP' },
+    { value: 'Camión ligero', label: 'Camión ligero' },
+    { value: 'Camión pesado', label: 'Camión pesado' },
+  ];
+
   return (
     <div className="container mx-auto p-4 pt-8">
       <div className="max-w-2xl mx-auto animate-fadeSlideIn">
@@ -114,6 +135,7 @@ const OnboardingView: React.FC = () => {
           <h2 className="text-3xl font-bold mb-8 text-slate-100">Configurar perfil de <span className="fletapp-text-gradient bg-clip-text text-transparent bg-gradient-to-r from-amber-300 to-orange-500">{role === 'driver' ? 'Fletero' : 'Cliente'}</span></h2>
           <form onSubmit={handleSubmit} className="space-y-6">
             <Input name="full_name" label="Nombre Completo" required />
+            <Input name="dni" label="DNI" required />
             <Input name="email" label="Correo Electrónico" type="email" required />
             <Input name="password" label="Contraseña" type="password" required minLength={6} />
             <Input name="confirmPassword" label="Confirmar Contraseña" type="password" required />
@@ -130,12 +152,16 @@ const OnboardingView: React.FC = () => {
                     <Button type="button" variant="secondary" onClick={() => fileInputRef.current?.click()}>Subir Foto</Button>
                   </div>
                 </div>
-                <Input name="vehicle" label="Vehículo (ej. Ford F-100)" required />
+                <div className="grid md:grid-cols-2 gap-6">
+                  <Input name="vehicle" label="Vehículo (ej. Ford F-100)" required />
+                  <Select name="vehicle_type" label="Tipo de Vehículo" options={vehicleTypeOptions} required />
+                </div>
                 <div className="grid md:grid-cols-2 gap-6">
                   <Input name="capacity_kg" label="Capacidad de Carga (kg)" type="number" required />
                   <Input name="capacity_m3" label="Capacidad de Carga (m³)" type="number" step="0.1" required />
                 </div>
                 <Input name="service_radius_km" label="Área de Fleteo (km desde tu domicilio)" type="number" required />
+                <Input name="payment_info" label="Ingresa el Alias o CBU donde recibirás tus pagos" required />
               </>
             )}
             {error && <p className="text-sm text-red-400 text-center animate-shake">{error}</p>}

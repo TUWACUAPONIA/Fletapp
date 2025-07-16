@@ -1,12 +1,57 @@
 
-import React, { useContext, useMemo, useState, useEffect } from 'react';
-import { AppContext } from '../../App';
-import { Trip, TripStatus, UserRole, View, Driver } from '../../types';
-import { Button, Card, Icon, Spinner, Input } from '../ui';
+
+
+
+import React, { useContext, useMemo, useState, useEffect, useRef } from 'react';
+import { AppContext } from '../../AppContext';
+import { Trip, TripStatus, UserRole, View, Profile, ChatMessage, Review } from '../../types';
+import { Button, Card, Icon, Spinner, Input, StarRating, TextArea } from '../ui';
+import { supabase } from '../../services/supabaseService';
 
 interface TripStatusViewProps {
   tripId: number;
 }
+
+const ReviewForm: React.FC<{ trip: Trip }> = ({ trip }) => {
+    const context = useContext(AppContext);
+    const [rating, setRating] = useState(0);
+    const [comment, setComment] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+
+    if (!context || !trip.driver_id) return null;
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (rating === 0) {
+            alert('Por favor, selecciona una calificación de estrellas.');
+            return;
+        }
+        setIsLoading(true);
+        await context.submitReview(trip.id, trip.driver_id!, rating, comment);
+        setIsLoading(false);
+    };
+
+    return (
+        <Card>
+            <h3 className="text-xl font-bold mb-4 text-slate-100">Califica tu Experiencia</h3>
+            <p className="text-slate-400 mb-4">Tu opinión ayuda a otros clientes. ¿Cómo fue tu experiencia con {trip.driver_id && context.users.find(u => u.id === trip.driver_id)?.full_name}?</p>
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="flex justify-center">
+                    <StarRating value={rating} onChange={setRating} isEditable size="lg" />
+                </div>
+                <TextArea
+                    label="Comentario (opcional)"
+                    id="review-comment"
+                    value={comment}
+                    onChange={(e) => setComment(e.target.value)}
+                    placeholder="Describe tu experiencia..."
+                />
+                <Button type="submit" isLoading={isLoading} className="w-full">Enviar Reseña</Button>
+            </form>
+        </Card>
+    );
+};
+
 
 const Stopwatch: React.FC<{ start_time: number | string }> = ({ start_time }) => {
     const [elapsed, setElapsed] = useState(Date.now() - new Date(start_time).getTime());
@@ -205,6 +250,110 @@ const MapDisplay: React.FC<{ trip: Trip }> = ({ trip }) => {
     );
 };
 
+const ChatComponent: React.FC<{ tripId: number }> = ({ tripId }) => {
+    const context = useContext(AppContext);
+    const user = context?.user;
+    const [messages, setMessages] = useState<ChatMessage[]>([]);
+    const [newMessage, setNewMessage] = useState('');
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSending, setIsSending] = useState(false);
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+
+    const scrollToBottom = () => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    };
+
+    useEffect(() => {
+        scrollToBottom();
+    }, [messages]);
+
+    useEffect(() => {
+        const fetchMessages = async () => {
+            setIsLoading(true);
+            const { data, error } = await supabase
+                .from('chat_messages')
+                .select('*')
+                .eq('trip_id', tripId)
+                .order('created_at', { ascending: true });
+            
+            if (error) {
+                console.error('Error fetching messages:', error);
+            } else {
+                setMessages(data || []);
+            }
+            setIsLoading(false);
+        };
+        fetchMessages();
+
+        const channel = supabase.channel(`chat_trip_${tripId}`)
+            .on<ChatMessage>(
+                'postgres_changes',
+                { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `trip_id=eq.${tripId}` },
+                (payload) => {
+                    setMessages((prevMessages) => [...prevMessages, payload.new as ChatMessage]);
+                }
+            )
+            .subscribe();
+            
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [tripId]);
+
+    const handleSendMessage = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newMessage.trim() || !context || isSending) return;
+
+        setIsSending(true);
+        await context.sendChatMessage(tripId, newMessage.trim());
+        setNewMessage('');
+        setIsSending(false);
+    };
+    
+    if (!user) return null;
+
+    return (
+        <Card>
+            <h3 className="text-xl font-bold mb-4 text-slate-100">Chat del Viaje</h3>
+            <div className="h-80 bg-slate-950/50 rounded-lg p-4 flex flex-col space-y-4 overflow-y-auto border border-slate-800">
+                {isLoading ? (
+                    <div className="flex-1 flex items-center justify-center"><Spinner /></div>
+                ) : messages.length === 0 ? (
+                    <div className="flex-1 flex items-center justify-center text-slate-500">Aún no hay mensajes.</div>
+                ) : (
+                    messages.map(msg => {
+                        const isSender = msg.sender_id === user.id;
+                        return (
+                            <div key={msg.id} className={`flex flex-col ${isSender ? 'items-end' : 'items-start'}`}>
+                                <div className={`max-w-xs md:max-w-md px-4 py-2 rounded-xl ${isSender ? 'bg-amber-600/80 text-white rounded-br-none' : 'bg-slate-700 text-slate-200 rounded-bl-none'}`}>
+                                    <p>{msg.content}</p>
+                                </div>
+                                <span className="text-xs text-slate-500 mt-1 px-1">
+                                    {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                            </div>
+                        );
+                    })
+                )}
+                <div ref={messagesEndRef} />
+            </div>
+            <form onSubmit={handleSendMessage} className="mt-4 flex gap-2">
+                <Input
+                    id="chat-message"
+                    name="chat-message"
+                    placeholder="Escribe un mensaje..."
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    className="flex-grow"
+                    disabled={isSending}
+                    autoComplete="off"
+                />
+                <Button type="submit" isLoading={isSending} disabled={!newMessage.trim()}>Enviar</Button>
+            </form>
+        </Card>
+    );
+};
+
 
 const TripStatusView: React.FC<TripStatusViewProps> = ({ tripId }) => {
   const context = useContext(AppContext);
@@ -214,10 +363,15 @@ const TripStatusView: React.FC<TripStatusViewProps> = ({ tripId }) => {
   const trip = useMemo(() => context?.trips.find(t => t.id === tripId), [context?.trips, tripId]);
   const driver = useMemo(() => {
     if (!context || !trip?.driver_id) return null;
-    return context.users.find(d => d.id === trip.driver_id) as Driver | undefined;
+    return context.users.find(d => d.id === trip.driver_id);
   }, [context?.users, trip]);
   
   const user = context?.user;
+  const hasAlreadyReviewed = useMemo(() => {
+      return context?.reviews.some(r => r.trip_id === tripId && r.reviewer_id === user?.id);
+  }, [context?.reviews, tripId, user?.id]);
+  
+  const ADMIN_PAYMENT_INFO = 'fletapp.admin.mp';
 
   if (!context) return <div className="p-8 text-center flex justify-center"><Spinner/></div>;
 
@@ -238,16 +392,19 @@ const TripStatusView: React.FC<TripStatusViewProps> = ({ tripId }) => {
   const handlePayment = async (id: number) => await context.processPayment(id);
   
   const statuses = [
-      { key: TripStatus.REQUESTED, label: 'Solicitado' },
-      { key: TripStatus.ACCEPTED, label: 'Aceptado por Fletero' },
-      { key: TripStatus.IN_TRANSIT, label: 'En Viaje' },
-      { key: TripStatus.COMPLETED, label: 'Entregado' },
-      { key: TripStatus.PAID, label: 'Pagado y Finalizado' },
+      { key: 'requested' as TripStatus, label: 'Solicitado' },
+      { key: 'accepted' as TripStatus, label: 'Aceptado por Fletero' },
+      { key: 'in_transit' as TripStatus, label: 'En Viaje' },
+      { key: 'completed' as TripStatus, label: 'Entregado' },
+      { key: 'paid' as TripStatus, label: 'Pagado y Finalizado' },
   ];
   
   const currentStatusIndex = statuses.findIndex(s => s.key === trip.status);
 
   const progressHeight = currentStatusIndex > 0 ? `${(currentStatusIndex / (statuses.length - 1)) * 100}%` : '0%';
+  
+  const showReviewForm = user?.role === 'customer' && trip.status === 'paid' && !hasAlreadyReviewed;
+  const showReviewSubmitted = user?.role === 'customer' && trip.status === 'paid' && hasAlreadyReviewed;
 
   return (
     <>
@@ -264,9 +421,17 @@ const TripStatusView: React.FC<TripStatusViewProps> = ({ tripId }) => {
             <div className="staggered-child" style={{ animationDelay: '0.1s' }}><Card>
                 <div className="flex justify-between items-start gap-4">
                     <h3 className="text-2xl font-bold text-slate-100 flex-1">{trip.cargo_details}</h3>
-                    <p className="text-2xl font-bold text-green-400 whitespace-nowrap">${trip.final_price?.toLocaleString() || trip.price?.toLocaleString()}</p>
+                    <div className="text-right">
+                        <p className="text-2xl font-bold text-green-400 whitespace-nowrap">
+                            ${(trip.final_price ?? trip.price)?.toLocaleString()}
+                        </p>
+                        <span className={`text-xs font-semibold uppercase ${trip.final_price ? 'text-green-400' : 'text-amber-400'}`}>
+                            {trip.final_price ? 'Precio Final' : 'Precio Estimado'}
+                        </span>
+                    </div>
                 </div>
-                 {trip.status === TripStatus.COMPLETED && <p className="text-sm font-semibold text-amber-300 mt-1">Precio Final basado en la duración real del viaje.</p>}
+                {trip.status === 'completed' && trip.final_price && <p className="text-sm text-slate-400 mt-1">Calculado en base a la duración y distancia del viaje.</p>}
+                
                 <div className="mt-4 space-y-2 text-slate-300">
                     <p><span className="font-semibold text-slate-100">Origen:</span> {trip.origin}</p>
                     <p><span className="font-semibold text-slate-100">Destino:</span> {trip.destination}</p>
@@ -303,6 +468,28 @@ const TripStatusView: React.FC<TripStatusViewProps> = ({ tripId }) => {
                 <h3 className="text-2xl font-bold mb-4 text-slate-100">Recorrido del Viaje</h3>
                 <MapDisplay trip={trip} />
             </Card></div>
+
+            {trip.status !== 'requested' && trip.status !== 'paid' && (
+              <div className="staggered-child" style={{ animationDelay: '0.4s' }}>
+                <ChatComponent tripId={trip.id} />
+              </div>
+            )}
+            
+            {showReviewForm && (
+                <div className="staggered-child lg:col-span-2" style={{ animationDelay: '0.4s' }}>
+                    <ReviewForm trip={trip} />
+                </div>
+            )}
+            
+            {showReviewSubmitted && (
+                <div className="staggered-child lg:col-span-2" style={{ animationDelay: '0.4s' }}>
+                    <Card className="text-center">
+                        <Icon type="checkCircle" className="w-12 h-12 text-green-400 mx-auto mb-4" />
+                        <h3 className="text-xl font-bold mb-2 text-slate-100">Reseña Enviada</h3>
+                        <p className="text-slate-400">Gracias por compartir tu opinión.</p>
+                    </Card>
+                </div>
+            )}
         </div>
         
         <div className="lg:col-span-1 sticky top-24">
@@ -319,10 +506,10 @@ const TripStatusView: React.FC<TripStatusViewProps> = ({ tripId }) => {
                                     {isCurrent && <div className="absolute inset-0 rounded-full fletapp-gold-gradient animate-pulse"></div>}
                                 </div>
                                 <p className={`font-bold transition-colors duration-500 text-lg ${isActive ? 'text-white' : 'text-slate-500'}`}>{status.label}</p>
-                                {status.key === TripStatus.ACCEPTED && driver && (
+                                {status.key === 'accepted' && driver && (
                                     <>
                                         <p className="text-sm text-slate-400 mt-1">Por: {driver.full_name}</p>
-                                        {trip.driver_arrival_time_min && trip.status === TripStatus.ACCEPTED && (
+                                        {trip.driver_arrival_time_min && trip.status === 'accepted' && (
                                              <div className="mt-2 text-sm text-amber-300 bg-amber-500/10 p-3 rounded-lg border border-amber-500/20 inline-block animate-fadeSlideIn">
                                                 <div className="flex items-center gap-2">
                                                     <Icon type="time" className="w-5 h-5 text-amber-400 flex-shrink-0" />
@@ -340,22 +527,32 @@ const TripStatusView: React.FC<TripStatusViewProps> = ({ tripId }) => {
                     })}
                 </div>
                 <div className="mt-2 space-y-4">
-                    {trip.status === TripStatus.IN_TRANSIT && trip.start_time && <Stopwatch start_time={trip.start_time} />}
-                    {user?.role === UserRole.DRIVER && trip.status === TripStatus.ACCEPTED && (
+                    {trip.status === 'in_transit' && trip.start_time && <Stopwatch start_time={trip.start_time} />}
+                    {user?.role === 'driver' && trip.status === 'accepted' && (
                         <Button onClick={handleStartTrip} className="w-full text-base animate-fadeSlideIn">Iniciar Viaje</Button>
                     )}
-                    {user?.role === UserRole.DRIVER && trip.status === TripStatus.IN_TRANSIT && (
+                    {user?.role === 'driver' && trip.status === 'in_transit' && (
                         <Button onClick={handleCompleteTrip} className="w-full text-base animate-fadeSlideIn">Marcar como Entregado</Button>
                     )}
-                    {user?.role === UserRole.CUSTOMER && trip.status === TripStatus.COMPLETED && (
-                        <Button onClick={() => setIsPaymentModalOpen(true)} className="w-full text-base animate-fadeSlideIn">Realizar Pago</Button>
+                    {user?.role === 'customer' && trip.status === 'completed' && (
+                        <>
+                            <Card className="bg-slate-800/60 border-slate-700 animate-fadeSlideIn">
+                                <h4 className="text-lg font-bold text-slate-100 mb-2">Información de Pago</h4>
+                                <p className="text-slate-400 mb-2">Para completar el servicio, por favor transfiere el monto final a la siguiente cuenta de Fletapp:</p>
+                                <div className="bg-slate-950/70 p-3 rounded-lg mt-2 text-center">
+                                    <p className="text-lg font-mono font-semibold text-amber-300">{ADMIN_PAYMENT_INFO}</p>
+                                </div>
+                                <p className="text-xs text-slate-500 mt-3">Una vez realizado el pago, presiona el botón de abajo para marcar el viaje como finalizado y notificar al sistema.</p>
+                            </Card>
+                            <Button onClick={() => setIsPaymentModalOpen(true)} className="w-full text-base animate-fadeSlideIn">He Realizado el Pago</Button>
+                        </>
                     )}
-                    {user?.role === UserRole.DRIVER && trip.status === TripStatus.COMPLETED && (
+                    {user?.role === 'driver' && trip.status === 'completed' && (
                          <div className="text-center p-4 bg-amber-500/10 rounded-lg border border-amber-500/20 animate-fadeSlideIn">
                             <p className="font-bold text-amber-300">Esperando el pago del cliente.</p>
                         </div>
                     )}
-                    {trip.status === TripStatus.PAID && (
+                    {trip.status === 'paid' && !showReviewForm && (
                         <div className="text-center p-4 bg-green-500/10 rounded-lg border border-green-500/20 animate-fadeSlideIn">
                             <p className="font-bold text-green-300">¡Viaje pagado con éxito!</p>
                         </div>

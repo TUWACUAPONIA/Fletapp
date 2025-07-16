@@ -1,7 +1,9 @@
 
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+
+
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { AuthError, Session } from '@supabase/supabase-js';
-import { UserRole, View, Driver, Customer, Trip, TripStatus, AnyUser, Profile } from './types';
+import { UserRole, View, Driver, Customer, Trip, TripStatus, Profile, VehicleType, NewTrip, Review } from './types';
 import HomeView from './components/views/HomeView';
 import LandingView from './components/views/LandingView';
 import OnboardingView from './components/views/OnboardingView';
@@ -9,79 +11,93 @@ import LoginView from './components/views/LoginView';
 import DashboardView from './components/views/DashboardView';
 import RankingsView from './components/views/RankingsView';
 import TripStatusView from './components/views/TripStatusView';
-import { getDriverEta } from './services/geminiService';
-import { supabase } from './services/supabaseService';
+import DriverProfileView from './components/views/DriverProfileView';
+import { getDriverEta, getSuitableVehicleTypes } from './services/geminiService';
+import { supabase, type Database } from './services/supabaseService';
 import { Spinner } from './components/ui';
+import { AppContext, AppContextType } from './AppContext';
 
-// Define context type to help with inference and avoid deep instantiation errors
-export interface AppContextType {
-  user: Profile | null;
-  users: Profile[];
-  trips: Trip[];
-  view: View;
-  setView: (view: View) => void;
-  loginUser: (email: string, password: string) => Promise<AuthError | null>;
-  registerUser: (userData: Omit<Profile, 'id'>, password: string) => Promise<AuthError | null>;
-  createTrip: (trip: Omit<Trip, 'id' | 'customer_id' | 'driver_id' | 'status'>) => Promise<void>;
-  acceptTrip: (tripId: number) => Promise<void>;
-  startTrip: (tripId: number) => Promise<void>;
-  completeTrip: (tripId: number) => Promise<void>;
-  processPayment: (tripId: number) => Promise<void>;
-  viewTripDetails: (tripId: number) => void;
-  logout: () => Promise<void>;
-}
-
-// Context for sharing state
-export const AppContext = React.createContext<AppContextType | null>(null);
 
 const App: React.FC = () => {
   const [view, setView] = useState<View>('home');
   const [user, setUser] = useState<Profile | null>(null);
   const [users, setUsers] = useState<Profile[]>([]);
   const [trips, setTrips] = useState<Trip[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [activeTripId, setActiveTripId] = useState<number | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [activeDriverId, setActiveDriverId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const prevTripsRef = useRef<Trip[]>([]);
+  const userRef = useRef(user); // Create a ref to hold the user state.
+  const tripsRef = useRef(trips); // Create a ref to hold the trips state.
+
+  // Keep the refs updated whenever the state changes.
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+
+  useEffect(() => {
+    tripsRef.current = trips;
+  }, [trips]);
+
+  useEffect(() => {
+    // Horn sound for client when a trip is accepted
+    if (user?.role === 'customer' && prevTripsRef.current.length > 0) {
+        trips.forEach(newTrip => {
+            const oldTrip = prevTripsRef.current.find(t => t.id === newTrip.id);
+            if (oldTrip && oldTrip.status === 'requested' && newTrip.status === 'accepted' && newTrip.customer_id === user.id) {
+                const audio = new Audio('https://storage.googleapis.com/interactive-media-ads/media/bus-horn.mp3');
+                audio.play().catch(e => console.error("Error playing horn sound:", e));
+            }
+        });
+    }
+    // Update the ref for the next render
+    prevTripsRef.current = trips;
+  }, [trips, user]);
 
   const fetchAllData = useCallback(async () => {
     const { data: usersData, error: usersError } = await supabase.from('profiles').select('*');
     if (usersError) console.error('Error fetching users:', usersError);
-    else setUsers(usersData);
+    else setUsers(usersData || []);
 
     const { data: tripsData, error: tripsError } = await supabase.from('trips').select('*').order('created_at', { ascending: false });
     if (tripsError) console.error('Error fetching trips:', tripsError);
-    else setTrips(tripsData as Trip[]);
+    else setTrips(tripsData || []);
+
+    const { data: reviewsData, error: reviewsError } = await supabase.from('reviews').select('*').order('created_at', { ascending: false });
+    if (reviewsError) console.error('Error fetching reviews:', reviewsError);
+    else setReviews(reviewsData || []);
   }, []);
   
   const handleSession = useCallback(async (session: Session | null) => {
     if (session?.user) {
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', session.user.id)
-        .single();
+        const { data: profile, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
 
-      if (error) {
-        console.error('Error fetching profile:', error);
-        setUser(null);
-        setView('landing');
-      } else {
-        setUser(profile);
-        if (trips.length === 0) { // Fetch data only if not already present
-          await fetchAllData();
+        if (error) {
+            console.error('Error fetching profile:', error);
+            setUser(null);
+        } else {
+            // Use the userRef to check for a new login, breaking the dependency cycle.
+            const isNewLogin = !userRef.current || userRef.current.id !== (profile?.id || '');
+            setUser(profile || null);
+            if (isNewLogin) { // Fetch all data only on a new login.
+                await fetchAllData();
+            }
         }
-        setView('dashboard');
-      }
     } else {
-      setUser(null);
-      setUsers([]);
-      setTrips([]);
-      setView('landing');
+        setUser(null);
+        setUsers([]);
+        setTrips([]);
+        setReviews([]);
     }
-    setIsLoading(false);
-  }, [fetchAllData, trips.length]);
+  }, [fetchAllData]);
 
   useEffect(() => {
-    // Check initial session state
+    // Check initial session state in the background without showing a loader
     supabase.auth.getSession().then(({ data: { session } }) => {
       handleSession(session);
     });
@@ -105,8 +121,11 @@ const App: React.FC = () => {
       console.error('Error logging out:', error);
       alert('Error al cerrar sesión.');
     }
-    // The onAuthStateChange listener will handle setting the state
+    // The onAuthStateChange listener will handle setting the user state.
+    // The view will change to LoginView automatically because user becomes null.
     setActiveTripId(null);
+    setActiveDriverId(null);
+    setView('landing'); // Redirect to landing after logout
     setIsLoading(false);
   }, []);
 
@@ -120,7 +139,7 @@ const App: React.FC = () => {
     if (error) return error;
 
     if (data.user) {
-        const profileData: Profile = { ...newUser, id: data.user.id };
+        const profileData: Database['public']['Tables']['profiles']['Insert'] = { ...newUser, id: data.user.id };
         const { error: profileError } = await supabase.from('profiles').insert(profileData);
         if (profileError) {
             console.error("Error creating profile:", profileError);
@@ -130,51 +149,68 @@ const App: React.FC = () => {
     return null;
   }, []);
 
-  const createTrip = useCallback(async (tripData: Omit<Trip, 'id' | 'customer_id' | 'driver_id' | 'status'>) => {
-    if (!user || user.role !== UserRole.CUSTOMER) return;
-    const { error } = await supabase.from('trips').insert({
+  const createTrip = useCallback(async (tripData: NewTrip) => {
+    const currentUser = userRef.current;
+    if (!currentUser || currentUser.role !== 'customer') return;
+    
+    // AI call to determine suitable vehicle types
+    const suitableTypes = await getSuitableVehicleTypes(tripData.cargo_details);
+    // Fallback: If AI fails, allow all vehicle types to see the trip to not block the user.
+    const vehicleTypeValues: VehicleType[] = ['Furgoneta', 'Furgón', 'Pick UP', 'Camión ligero', 'Camión pesado'];
+    const suitable_vehicle_types = suitableTypes ?? vehicleTypeValues;
+
+    const tripToInsert: Database['public']['Tables']['trips']['Insert'] = {
         ...tripData,
-        customer_id: user.id,
-        status: TripStatus.REQUESTED,
+        customer_id: currentUser.id,
+        status: 'requested',
         driver_id: null,
-    });
+        suitable_vehicle_types: suitable_vehicle_types,
+    };
+
+    const { error } = await supabase.from('trips').insert(tripToInsert);
     if (error) console.error("Error creating trip:", error);
     else await fetchAllData();
-  }, [user, fetchAllData]);
+  }, [fetchAllData]);
 
   const acceptTrip = useCallback(async (tripId: number) => {
-    if (!user || user.role !== UserRole.DRIVER) return;
-    const driver = user as Driver;
-    const tripToAccept = trips.find(t => t.id === tripId);
+    const currentUser = userRef.current;
+    if (!currentUser || currentUser.role !== 'driver') return;
+    const driver = currentUser as Profile as Driver; // Casting because we know the role
+    const tripToAccept = tripsRef.current.find(t => t.id === tripId);
     if (!tripToAccept) return;
     
     const eta = await getDriverEta(driver.address, tripToAccept.origin);
 
-    const { error } = await supabase.from('trips').update({ 
-        status: TripStatus.ACCEPTED, 
-        driver_id: user.id,
-        driver_arrival_time_min: eta ?? undefined 
-    }).eq('id', tripId);
+    const updatePayload: Database['public']['Tables']['trips']['Update'] = { 
+        status: 'accepted', 
+        driver_id: currentUser.id,
+        driver_arrival_time_min: eta
+    };
+
+    const { error } = await supabase.from('trips').update(updatePayload).eq('id', tripId);
 
     if (error) console.error("Error accepting trip:", error);
     else await fetchAllData();
-  }, [user, trips, fetchAllData]);
+  }, [fetchAllData]);
 
   const startTrip = useCallback(async (tripId: number) => {
-    if (!user || user.role !== UserRole.DRIVER) return;
-    const { error } = await supabase.from('trips').update({ 
-        status: TripStatus.IN_TRANSIT, 
+    const currentUser = userRef.current;
+    if (!currentUser || currentUser.role !== 'driver') return;
+
+    const updatePayload: Database['public']['Tables']['trips']['Update'] = { 
+        status: 'in_transit', 
         start_time: new Date().toISOString() 
-    }).eq('id', tripId);
+    };
+
+    const { error } = await supabase.from('trips').update(updatePayload).eq('id', tripId);
     
     if (error) console.error("Error starting trip:", error);
     else await fetchAllData();
-  }, [user, fetchAllData]);
+  }, [fetchAllData]);
 
   const completeTrip = useCallback(async (tripId: number) => {
-    if (!user || user.role !== UserRole.DRIVER) return;
-    const trip = trips.find(t => t.id === tripId);
-    if (trip && trip.status === TripStatus.IN_TRANSIT && trip.start_time) {
+    const trip = tripsRef.current.find(t => t.id === tripId);
+    if (trip && trip.status === 'in_transit' && trip.start_time) {
         const startTimeMs = new Date(trip.start_time).getTime();
         const finalDurationMin = Math.ceil((Date.now() - startTimeMs) / (1000 * 60));
         
@@ -183,32 +219,73 @@ const App: React.FC = () => {
         const distanceBonus = (trip.distance_km || 0) > 30 ? 20000 : 0;
         const finalPrice = timeCost + distanceBonus;
 
-        const { error } = await supabase.from('trips').update({ 
-            status: TripStatus.COMPLETED, 
+        const updatePayload: Database['public']['Tables']['trips']['Update'] = { 
+            status: 'completed', 
             final_duration_min: finalDurationMin, 
             final_price: Math.round(finalPrice) 
-        }).eq('id', tripId);
+        };
+        const { error } = await supabase.from('trips').update(updatePayload).eq('id', tripId);
 
         if (error) console.error("Error completing trip:", error);
         else await fetchAllData();
     }
-  }, [user, trips, fetchAllData]);
+  }, [fetchAllData]);
 
   const processPayment = useCallback(async (tripId: number) => {
-    const { error } = await supabase.from('trips').update({ status: TripStatus.PAID }).eq('id', tripId);
+    const updatePayload: Database['public']['Tables']['trips']['Update'] = { status: 'paid' };
+    const { error } = await supabase.from('trips').update(updatePayload).eq('id', tripId);
     if (error) console.error("Error processing payment:", error);
     else await fetchAllData();
+  }, [fetchAllData]);
+
+  const sendChatMessage = useCallback(async (tripId: number, content: string) => {
+    const currentUser = userRef.current;
+    if (!currentUser) return;
+    const messageToInsert: Database['public']['Tables']['chat_messages']['Insert'] = {
+      trip_id: tripId,
+      sender_id: currentUser.id,
+      content: content,
+    };
+    const { error } = await supabase.from('chat_messages').insert(messageToInsert);
+    if (error) {
+      console.error("Error sending chat message:", error);
+    }
+  }, []);
+
+  const submitReview = useCallback(async (tripId: number, driverId: string, rating: number, comment: string) => {
+    const currentUser = userRef.current;
+    if (!currentUser || currentUser.role !== 'customer') return;
+    const reviewToInsert: Database['public']['Tables']['reviews']['Insert'] = {
+        trip_id: tripId,
+        reviewer_id: currentUser.id,
+        driver_id: driverId,
+        rating,
+        comment,
+    };
+    const { error } = await supabase.from('reviews').insert(reviewToInsert);
+    if (error) {
+      console.error("Error submitting review:", error);
+      alert('Error al enviar la reseña.');
+    } else {
+      await fetchAllData(); // Refresh reviews
+    }
   }, [fetchAllData]);
 
   const viewTripDetails = useCallback((tripId: number) => {
     setActiveTripId(tripId);
     setView('tripStatus');
   }, []);
+  
+  const viewDriverProfile = useCallback((driverId: string) => {
+    setActiveDriverId(driverId);
+    setView('driverProfile');
+  }, []);
 
   const appContextValue: AppContextType | null = useMemo(() => ({
     user,
     users,
     trips,
+    reviews,
     view,
     setView,
     loginUser,
@@ -219,8 +296,12 @@ const App: React.FC = () => {
     completeTrip,
     processPayment,
     viewTripDetails,
+    sendChatMessage,
+    submitReview,
+    viewDriverProfile,
     logout,
-  }), [user, users, trips, view, loginUser, registerUser, createTrip, acceptTrip, startTrip, completeTrip, processPayment, viewTripDetails, logout]);
+    activeDriverId,
+  }), [user, users, trips, reviews, view, setView, loginUser, registerUser, createTrip, acceptTrip, startTrip, completeTrip, processPayment, viewTripDetails, sendChatMessage, submitReview, viewDriverProfile, logout, activeDriverId]);
 
   const Header = () => {
     const [scrolled, setScrolled] = useState(false);
@@ -289,6 +370,8 @@ const App: React.FC = () => {
         return user ? <RankingsView /> : <LoginView />;
       case 'tripStatus':
         return activeTripId && user ? <TripStatusView tripId={activeTripId} /> : <DashboardView />;
+      case 'driverProfile':
+        return activeDriverId && user ? <DriverProfileView /> : <RankingsView />;
       default:
         return <HomeView />;
     }

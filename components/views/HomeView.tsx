@@ -1,6 +1,8 @@
 
+
+
 import React, { useContext, useState } from 'react';
-import { AppContext } from '../../App';
+import { AppContext } from '../../AppContext';
 import { View } from '../../types';
 
 const TruckIcon = ({ className, isExiting }: { className?: string; isExiting?: boolean }) => (
@@ -61,10 +63,20 @@ const HomeView: React.FC = () => {
 
   const handleStart = () => {
     if (!context || isExiting) return;
+    
+    // Play sound on user interaction
+    const audio = new Audio('https://storage.googleapis.com/gold-dev-web/codelabs/sound-effects/truck-start.mp3');
+    audio.play().catch(e => console.error("Error playing sound:", e));
+
     setIsExiting(true);
 
     setTimeout(() => {
-      context.setView('landing' as View);
+      // After animation, check if user is logged in and redirect accordingly
+      if (context.user) {
+        context.setView('dashboard' as View);
+      } else {
+        context.setView('landing' as View);
+      }
     }, 1200); // Duration matches truck exit animation
   };
 

@@ -1,6 +1,7 @@
 
-import React, { useState, useContext } from 'react';
-import { AppContext } from '../../App';
+
+import React, { useState, useContext, useEffect } from 'react';
+import { AppContext } from '../../AppContext';
 import { Button, Input, Card } from '../ui';
 
 const LoginView: React.FC = () => {
@@ -9,6 +10,13 @@ const LoginView: React.FC = () => {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+
+    useEffect(() => {
+        // If the user is already logged in when this view is rendered, redirect to dashboard.
+        if (context?.user) {
+            context.setView('dashboard');
+        }
+    }, [context?.user, context?.setView]);
 
     const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -26,7 +34,8 @@ const LoginView: React.FC = () => {
         if (authError) {
             setError(authError.message || "Email o contraseña incorrectos.");
         }
-        // On success, the App component will redirect to the dashboard via onAuthStateChange
+        // On success, the App component's onAuthStateChange listener will update the user,
+        // which will trigger the useEffect in this component to redirect to the dashboard.
         setIsLoading(false);
     };
 

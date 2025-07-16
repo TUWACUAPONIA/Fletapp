@@ -1,5 +1,3 @@
-
-
 // Declare the Deno global object to satisfy TypeScript's type checker.
 // This object is provided by the Deno runtime in Supabase Edge Functions.
 declare const Deno: {
@@ -17,7 +15,7 @@ import { GoogleGenAI, Type } from 'npm:@google/genai';
 // Estas cabeceras son CRUCIALES. Permiten que tu frontend (desplegado en Vercel)
 // pueda llamar a esta función (desplegada en Supabase) sin ser bloqueado por el navegador.
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*', // Permite peticiones desde cualquier origen. Para producción más estricta, puedes cambiar '*' por tu dominio de Vercel.
+  'Access-Control-Allow-Origin': 'https://fletapp.vercel.app', // Permite peticiones solo desde el dominio de producción.
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
@@ -82,6 +80,28 @@ serve(async (req: Request) => {
         required: ['etaMinutes'],
       };
 
+    } else if (action === 'getSuitableVehicleTypes') {
+      const { cargoDetails } = payload;
+      if (!cargoDetails) {
+        throw new Error('Faltan datos en el payload para la acción getSuitableVehicleTypes');
+      }
+
+      prompt = `Dada la siguiente descripción de la carga, determina qué tipos de vehículos de esta lista son adecuados para el transporte: "Furgoneta", "Furgón", "Pick UP", "Camión ligero", "Camión pesado". Devuelve solo un array JSON con los nombres de los tipos de vehículos adecuados. Carga: "${cargoDetails}"`;
+
+      schema = {
+        type: Type.OBJECT,
+        properties: {
+          suitableVehicleTypes: {
+            type: Type.ARRAY,
+            description: 'Una lista de tipos de vehículos adecuados para la carga, seleccionados de la lista proporcionada.',
+            items: { 
+              type: Type.STRING
+            }
+          }
+        },
+        required: ['suitableVehicleTypes'],
+      };
+      
     } else {
       throw new Error(`Acción no válida especificada: "${action}"`);
     }
@@ -107,7 +127,7 @@ serve(async (req: Request) => {
     // Si algo sale mal (API key faltante, JSON malformado, error de Gemini, etc.),
     // lo capturamos y devolvemos una respuesta de error clara al frontend.
     console.error('Error en la Edge Function gemini-proxy:', error);
-    return new Response(JSON.stringify({ error: (error as Error).message }), {
+    return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500, // Usamos un código de error de servidor.
     });

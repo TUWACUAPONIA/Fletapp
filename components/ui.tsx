@@ -1,4 +1,5 @@
-import React, { useRef } from 'react';
+
+import React, { useRef, useState } from 'react';
 
 // --- SPINNER ---
 export const Spinner: React.FC = () => (
@@ -14,6 +15,7 @@ export const Icon: React.FC<{ type: string; className?: string }> = ({ type, cla
     time: <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />,
     user: <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />,
     truck: <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.125-.504 1.125-1.125V14.25m-17.25 4.5h10.5a1.125 1.125 0 001.125-1.125V6.75a1.125 1.125 0 00-1.125-1.125H3.375A1.125 1.125 0 002.25 6.75v10.5a1.125 1.125 0 001.125 1.125z" />,
+    star: <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />,
     fleteroPro: (
         <>
           <path d="M18.75 1.5H5.25C4.00736 1.5 3 2.50736 3 3.75V15.75C3 16.9926 4.00736 18 5.25 18H6.75C6.75 19.6569 8.09315 21 9.75 21C11.4069 21 12.75 19.6569 12.75 18H16.5C16.5 19.6569 17.8431 21 19.5 21C21.1569 21 22.5 19.6569 22.5 18H23.25C23.6642 18 24 17.6642 24 17.25V11.25L20.25 6L18.75 1.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
@@ -82,9 +84,9 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 );
 Button.displayName = 'Button';
 
-// --- INPUT ---
+// --- INPUT & TEXTAREA ---
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
-  label: string;
+  label?: string;
   icon?: React.ReactNode;
 }
 
@@ -92,7 +94,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
   ({ label, id, type = 'text', icon, ...props }, ref) => {
     return (
       <div className="relative">
-        <label htmlFor={id} className="block text-sm font-medium text-slate-300 mb-2">{label}</label>
+        {label && <label htmlFor={id} className="block text-sm font-medium text-slate-300 mb-2">{label}</label>}
         <div className="relative">
           {icon && <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">{icon}</div>}
           <input
@@ -108,6 +110,65 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
   }
 );
 Input.displayName = 'Input';
+
+interface TextAreaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
+  label: string;
+}
+
+export const TextArea = React.forwardRef<HTMLTextAreaElement, TextAreaProps>(
+  ({ label, id, ...props }, ref) => {
+    return (
+      <div className="relative">
+        <label htmlFor={id} className="block text-sm font-medium text-slate-300 mb-2">{label}</label>
+        <textarea
+          ref={ref}
+          id={id}
+          rows={4}
+          className="w-full bg-slate-900/70 border border-slate-700/80 rounded-lg py-3 px-4 text-white placeholder-slate-500 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition duration-200 ease-in-out shadow-inner shadow-black/20"
+          {...props}
+        />
+      </div>
+    );
+  }
+);
+TextArea.displayName = 'TextArea';
+
+
+// --- SELECT ---
+interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
+  label: string;
+  options: { value: string; label: string }[];
+}
+
+export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
+  ({ label, id, options, ...props }, ref) => {
+    return (
+      <div className="relative">
+        <label htmlFor={id} className="block text-sm font-medium text-slate-300 mb-2">{label}</label>
+        <select
+          ref={ref}
+          id={id}
+          className="w-full bg-slate-900/70 border border-slate-700/80 rounded-lg py-3 px-4 text-white focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition duration-200 ease-in-out shadow-inner shadow-black/20 appearance-none"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+            backgroundPosition: 'right 0.5rem center',
+            backgroundRepeat: 'no-repeat',
+            backgroundSize: '1.5em 1.5em',
+            paddingRight: '2.5rem',
+          }}
+          {...props}
+        >
+          {options.map(option => (
+            <option key={option.value} value={option.value} className="bg-slate-800 text-white">
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  }
+);
+Select.displayName = 'Select';
 
 
 // --- CARD ---
@@ -151,6 +212,59 @@ export const Card: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ children,
       <div className="relative z-10">
         {children}
       </div>
+    </div>
+  );
+};
+
+
+// --- STAR RATING ---
+interface StarRatingProps {
+  count?: number;
+  value: number;
+  onChange?: (value: number) => void;
+  size?: 'sm' | 'md' | 'lg';
+  isEditable?: boolean;
+}
+
+export const StarRating: React.FC<StarRatingProps> = ({
+  count = 5,
+  value,
+  onChange,
+  size = 'md',
+  isEditable = false,
+}) => {
+  const [hoverValue, setHoverValue] = useState<number | undefined>(undefined);
+
+  const sizeClasses = {
+    sm: 'w-4 h-4',
+    md: 'w-6 h-6',
+    lg: 'w-8 h-8',
+  };
+
+  return (
+    <div className="flex items-center gap-1">
+      {Array.from({ length: count }, (_, i) => {
+        const starValue = i + 1;
+        const isFilled = starValue <= (hoverValue ?? value);
+
+        return (
+          <button
+            key={i}
+            type="button"
+            disabled={!isEditable}
+            onClick={() => onChange?.(starValue)}
+            onMouseEnter={() => isEditable && setHoverValue(starValue)}
+            onMouseLeave={() => isEditable && setHoverValue(undefined)}
+            className={`transition-all duration-200 ${isEditable ? 'cursor-pointer transform hover:scale-125' : 'cursor-default'}`}
+            aria-label={`Rate ${starValue} star`}
+          >
+            <Icon
+              type="star"
+              className={`${sizeClasses[size]} ${isFilled ? 'text-amber-400 fill-amber-400' : 'text-slate-600'}`}
+            />
+          </button>
+        );
+      })}
     </div>
   );
 };
