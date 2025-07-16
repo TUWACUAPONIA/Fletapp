@@ -1,11 +1,11 @@
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 
-// Enums refactored to simple string literal types for better type compatibility and to resolve TS errors.
-export type VehicleType = 'Furgoneta' | 'Furgón' | 'Pick UP' | 'Camión ligero' | 'Camión pesado';
-export type UserRole = 'customer' | 'driver';
-export type TripStatus = 'requested' | 'accepted' | 'in_transit' | 'completed' | 'paid';
-
+// --- Standalone Enum Types ---
+// This prevents circular type dependencies that cause resolution issues.
+export type TripStatusEnum = "requested" | "accepted" | "in_transit" | "completed" | "paid";
+export type UserRoleEnum = "customer" | "driver";
+export type VehicleTypeEnum = "Furgoneta" | "Furgón" | "Pick UP" | "Camión ligero" | "Camión pesado";
 
 // Define the database types for better type safety with Supabase
 export type Database = {
@@ -17,7 +17,7 @@ export type Database = {
           customer_id: string;
           driver_id: string | null;
           origin: string;
-          destination:string;
+          destination: string;
           cargo_details: string;
           estimated_weight_kg: number;
           estimated_volume_m3: number;
@@ -27,8 +27,8 @@ export type Database = {
           estimated_unload_time_min: number | null;
           driver_arrival_time_min: number | null;
           price: number | null;
-          status: TripStatus;
-          suitable_vehicle_types: VehicleType[] | null;
+          status: TripStatusEnum;
+          suitable_vehicle_types: VehicleTypeEnum[] | null;
           start_time: string | null;
           final_duration_min: number | null;
           final_price: number | null;
@@ -47,8 +47,8 @@ export type Database = {
           estimated_load_time_min?: number | null;
           estimated_unload_time_min?: number | null;
           price?: number | null;
-          status: TripStatus;
-          suitable_vehicle_types?: VehicleType[] | null;
+          status: TripStatusEnum;
+          suitable_vehicle_types?: VehicleTypeEnum[] | null;
         };
         Update: {
           customer_id?: string;
@@ -64,8 +64,8 @@ export type Database = {
           estimated_unload_time_min?: number | null;
           driver_arrival_time_min?: number | null;
           price?: number | null;
-          status?: TripStatus;
-          suitable_vehicle_types?: VehicleType[] | null;
+          status?: TripStatusEnum;
+          suitable_vehicle_types?: VehicleTypeEnum[] | null;
           start_time?: string | null;
           final_duration_min?: number | null;
           final_price?: number | null;
@@ -79,9 +79,9 @@ export type Database = {
           dni: string;
           phone: string;
           address: string;
-          role: UserRole;
+          role: UserRoleEnum;
           vehicle: string | null;
-          vehicle_type: VehicleType | null;
+          vehicle_type: VehicleTypeEnum | null;
           capacity_kg: number | null;
           capacity_m3: number | null;
           service_radius_km: number | null;
@@ -95,9 +95,9 @@ export type Database = {
             dni: string;
             phone: string;
             address: string;
-            role: UserRole;
+            role: UserRoleEnum;
             vehicle?: string | null;
-            vehicle_type?: VehicleType | null;
+            vehicle_type?: VehicleTypeEnum | null;
             capacity_kg?: number | null;
             capacity_m3?: number | null;
             service_radius_km?: number | null;
@@ -110,9 +110,9 @@ export type Database = {
           dni?: string;
           phone?: string;
           address?: string;
-          role?: UserRole;
+          role?: UserRoleEnum;
           vehicle?: string | null;
-          vehicle_type?: VehicleType | null;
+          vehicle_type?: VehicleTypeEnum | null;
           capacity_kg?: number | null;
           capacity_m3?: number | null;
           service_radius_km?: number | null;
@@ -167,7 +167,9 @@ export type Database = {
       [_ in never]: never;
     };
     Enums: {
-      [_ in never]: never;
+      trip_status: TripStatusEnum;
+      user_role: UserRoleEnum;
+      vehicle_type: VehicleTypeEnum;
     };
     CompositeTypes: {
       [_ in never]: never;
@@ -188,4 +190,4 @@ if (!supabaseUrl || !supabaseKey) {
 
 // Create and export the Supabase client, correctly typed with the Database definition.
 // This is the standard and recommended way to initialize the client.
-export const supabase: SupabaseClient<Database> = createClient<Database>(supabaseUrl, supabaseKey);
+export const supabase = createClient<Database>(supabaseUrl, supabaseKey);

@@ -1,7 +1,10 @@
+/// <reference types="vite/client" />
 
-import type { Database, UserRole, TripStatus, VehicleType } from './services/supabaseService';
+import type { Database, UserRoleEnum, TripStatusEnum, VehicleTypeEnum } from './services/supabaseService';
 
-export type { UserRole, TripStatus, VehicleType };
+export type UserRole = UserRoleEnum;
+export type TripStatus = TripStatusEnum;
+export type VehicleType = VehicleTypeEnum;
 
 // --- Main Data Types (from Supabase schema) ---
 export type Profile = Database['public']['Tables']['profiles']['Row'];

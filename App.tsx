@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { AuthError, Session } from '@supabase/supabase-js';
 import { UserRole, View, Driver, Customer, Trip, TripStatus, Profile, VehicleType, NewTrip, Review } from './types';
@@ -134,13 +135,13 @@ const App: React.FC = () => {
     return error;
   }, []);
 
-  const registerUser = useCallback(async (newUser: Omit<Profile, 'id'>, password: string): Promise<AuthError | null> => {
+  const registerUser = useCallback(async (newUser: Omit<Database['public']['Tables']['profiles']['Insert'], 'id'>, password: string): Promise<AuthError | null> => {
     const { data, error } = await supabase.auth.signUp({ email: newUser.email, password });
     if (error) return error;
 
     if (data.user) {
         const profileData: Database['public']['Tables']['profiles']['Insert'] = { ...newUser, id: data.user.id };
-        const { error: profileError } = await supabase.from('profiles').insert(profileData);
+        const { error: profileError } = await supabase.from('profiles').insert([profileData]);
         if (profileError) {
             console.error("Error creating profile:", profileError);
             return { message: profileError.message, name: 'ProfileError' } as AuthError; 
@@ -167,7 +168,7 @@ const App: React.FC = () => {
         suitable_vehicle_types: suitable_vehicle_types,
     };
 
-    const { error } = await supabase.from('trips').insert(tripToInsert);
+    const { error } = await supabase.from('trips').insert([tripToInsert]);
     if (error) console.error("Error creating trip:", error);
     else await fetchAllData();
   }, [fetchAllData]);
@@ -246,7 +247,7 @@ const App: React.FC = () => {
       sender_id: currentUser.id,
       content: content,
     };
-    const { error } = await supabase.from('chat_messages').insert(messageToInsert);
+    const { error } = await supabase.from('chat_messages').insert([messageToInsert]);
     if (error) {
       console.error("Error sending chat message:", error);
     }
@@ -262,7 +263,7 @@ const App: React.FC = () => {
         rating,
         comment,
     };
-    const { error } = await supabase.from('reviews').insert(reviewToInsert);
+    const { error } = await supabase.from('reviews').insert([reviewToInsert]);
     if (error) {
       console.error("Error submitting review:", error);
       alert('Error al enviar la reseña.');

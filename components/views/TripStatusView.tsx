@@ -1,12 +1,18 @@
 
 
-
-
 import React, { useContext, useMemo, useState, useEffect, useRef } from 'react';
 import { AppContext } from '../../AppContext';
 import { Trip, TripStatus, UserRole, View, Profile, ChatMessage, Review } from '../../types';
 import { Button, Card, Icon, Spinner, Input, StarRating, TextArea } from '../ui';
 import { supabase } from '../../services/supabaseService';
+
+// Declaración para que TypeScript reconozca el objeto MercadoPago inyectado por el script
+declare global {
+    interface Window {
+      MercadoPago: any;
+    }
+}
+
 
 interface TripStatusViewProps {
   tripId: number;
@@ -79,131 +85,15 @@ const Stopwatch: React.FC<{ start_time: number | string }> = ({ start_time }) =>
     );
 };
 
-const MercadoPagoQrModal: React.FC<{ trip: Trip; onClose: () => void; onPaymentSuccess: (tripId: number) => void }> = ({ trip, onClose, onPaymentSuccess }) => {
-    const [paymentStatus, setPaymentStatus] = useState<'scanning' | 'processing' | 'success'>('scanning');
-
-    useEffect(() => {
-        let timer: number;
-        if (paymentStatus === 'scanning') {
-            timer = window.setTimeout(() => setPaymentStatus('processing'), 3000);
-        } else if (paymentStatus === 'processing') {
-            timer = window.setTimeout(() => setPaymentStatus('success'), 2000);
-        } else if (paymentStatus === 'success') {
-            timer = window.setTimeout(() => {
-                onPaymentSuccess(trip.id);
-                onClose();
-            }, 1500);
-        }
-        return () => clearTimeout(timer);
-    }, [paymentStatus, onClose, onPaymentSuccess, trip.id]);
-
-    const content = {
-        scanning: {
-            icon: <Icon type="qrCode" className="w-48 h-48 text-slate-300" />,
-            title: "Escanea para pagar con MercadoPago",
-            description: `Abre tu app de MercadoPago y escanea el código para pagar $${trip.final_price?.toLocaleString()}.`
-        },
-        processing: {
-            icon: <Spinner />,
-            title: "Procesando pago...",
-            description: "Aguarde un momento, estamos confirmando la transacción."
-        },
-        success: {
-            icon: <Icon type="checkCircle" className="w-24 h-24 text-green-400" />,
-            title: "¡Pago Aprobado!",
-            description: "Gracias por tu pago. El viaje ha sido finalizado."
-        }
-    };
-
-    return (
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center z-50 animate-fadeSlideIn" style={{animationDuration: '0.3s'}} onClick={onClose}>
-            <Card className="w-full max-w-md text-center" onClick={e => e.stopPropagation()}>
-                <div className={`transition-all duration-500 ease-in-out flex flex-col items-center justify-center min-h-[320px] ${paymentStatus === 'scanning' ? 'opacity-100 scale-100' : 'opacity-0 scale-95 absolute invisible'}`}>
-                    <div className="flex justify-center mb-6">{content.scanning.icon}</div>
-                    <h3 className="text-2xl font-bold mb-2 text-slate-100">{content.scanning.title}</h3>
-                    <p className="text-slate-400">{content.scanning.description}</p>
-                </div>
-                <div className={`transition-all duration-500 ease-in-out flex flex-col items-center justify-center min-h-[320px] ${paymentStatus === 'processing' ? 'opacity-100 scale-100' : 'opacity-0 scale-95 absolute invisible'}`}>
-                    <div className="mb-6">{content.processing.icon}</div>
-                    <h3 className="text-2xl font-bold mb-2 text-slate-100">{content.processing.title}</h3>
-                    <p className="text-slate-400">{content.processing.description}</p>
-                </div>
-                 <div className={`transition-all duration-500 ease-in-out flex flex-col items-center justify-center min-h-[320px] ${paymentStatus === 'success' ? 'opacity-100 scale-100' : 'opacity-0 scale-95 absolute invisible'}`}>
-                    <div className="mb-4">{content.success.icon}</div>
-                    <h3 className="text-2xl font-bold mb-2 text-slate-100">{content.success.title}</h3>
-                    <p className="text-slate-400">{content.success.description}</p>
-                </div>
-            </Card>
-        </div>
-    );
-};
-
-
-const PaymentModal: React.FC<{ trip: Trip; onClose: () => void; onPaymentSuccess: (tripId: number) => void; onShowQr: () => void; }> = ({ trip, onClose, onPaymentSuccess, onShowQr }) => {
-    const [isLoading, setIsLoading] = useState(false);
-
-    const handleCardPayment = async () => {
-        setIsLoading(true);
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        await onPaymentSuccess(trip.id);
-        setIsLoading(false);
-        onClose();
-    };
-    
-    return (
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center z-50 animate-fadeSlideIn" style={{animationDuration: '0.3s'}}>
-            <Card className="w-full max-w-lg relative" onClick={e => e.stopPropagation()}>
-                <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white">&times;</button>
-                <h3 className="text-2xl font-bold mb-2 text-slate-100">Realizar Pago</h3>
-                <p className="text-slate-400 mb-6">Estás a punto de pagar por el flete de <span className="font-semibold text-slate-300">{trip.cargo_details}</span>.</p>
-                <div className="bg-slate-950/50 p-6 rounded-xl border border-slate-800 mb-6">
-                    <p className="text-sm text-slate-300 text-center">MONTO FINAL A PAGAR</p>
-                    <p className="text-5xl font-bold text-center text-green-400 mt-2">${trip.final_price?.toLocaleString()}</p>
-                </div>
-                
-                <div className="space-y-4">
-                    <fieldset className="border border-slate-700 p-4 rounded-lg">
-                        <legend className="px-2 text-slate-400 font-semibold">Tarjeta de Crédito/Débito</legend>
-                        <div className="space-y-4 mt-2">
-                             <Input label="Número de Tarjeta" id="cc-number" placeholder="0000 0000 0000 0000" />
-                             <div className="grid grid-cols-2 gap-4">
-                                <Input label="Vencimiento" id="cc-expiry" placeholder="MM/YY" />
-                                <Input label="CVC" id="cc-cvc" placeholder="123" />
-                             </div>
-                        </div>
-                    </fieldset>
-
-                    <Button onClick={handleCardPayment} isLoading={isLoading} className="w-full !py-4">
-                        <Icon type="creditCard" className="w-6 h-6" />Pagar ${trip.final_price?.toLocaleString()}
-                    </Button>
-                    
-                    <div className="flex items-center my-4">
-                        <div className="flex-grow border-t border-slate-700"></div>
-                        <span className="flex-shrink mx-4 text-slate-500">O</span>
-                        <div className="flex-grow border-t border-slate-700"></div>
-                    </div>
-                    
-                     <Button variant="secondary" onClick={onShowQr} className="w-full bg-sky-600/80 hover:bg-sky-500/80 text-white border-sky-500/50">
-                        <Icon type="mercadoPago" className="w-6 h-6" /> Pagar con MercadoPago
-                    </Button>
-                </div>
-            </Card>
-        </div>
-    )
-};
-
 const MapDisplay: React.FC<{ trip: Trip }> = ({ trip }) => {
     const apiKey = useMemo(() => {
         try {
-            // This robust check prevents crashes in sandboxed or unusual environments.
-            // It verifies each object in the chain before attempting access.
-            if (typeof process !== 'undefined' && typeof process.env === 'object' && process.env !== null && Object.prototype.hasOwnProperty.call(process.env, 'API_KEY')) {
-                return process.env.API_KEY;
+            // Standard way for Vite apps to access env vars
+            if (import.meta.env.VITE_GOOGLE_MAPS_API_KEY) {
+                return import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
             }
         } catch (e) {
-            // In case of any error (e.g., security restrictions), fall through gracefully.
-            console.warn("Could not access process.env.API_KEY", e);
+            console.warn("Could not access import.meta.env", e);
         }
         return undefined;
     }, []);
@@ -244,7 +134,7 @@ const MapDisplay: React.FC<{ trip: Trip }> = ({ trip }) => {
                 <p className="text-slate-300 text-sm max-w-sm">
                   Para que el mapa funcione, tu clave de API debe estar habilitada para el servicio <strong>"Maps Embed API"</strong> en tu proyecto de Google Cloud y tener una cuenta de facturación activa.
                 </p>
-                 {!apiKey && <p className="text-amber-300/80 text-xs mt-3">La API Key no está configurada en el entorno.</p>}
+                 {!apiKey && <p className="text-amber-300/80 text-xs mt-3">La API Key no está configurada en las variables de entorno (VITE_GOOGLE_MAPS_API_KEY).</p>}
             </div>
         </div>
     );
@@ -357,8 +247,8 @@ const ChatComponent: React.FC<{ tripId: number }> = ({ tripId }) => {
 
 const TripStatusView: React.FC<TripStatusViewProps> = ({ tripId }) => {
   const context = useContext(AppContext);
-  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
-  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+  const [isLoadingPayment, setIsLoadingPayment] = useState(false);
+  const [preferenceId, setPreferenceId] = useState<string | null>(null);
   
   const trip = useMemo(() => context?.trips.find(t => t.id === tripId), [context?.trips, tripId]);
   const driver = useMemo(() => {
@@ -370,8 +260,65 @@ const TripStatusView: React.FC<TripStatusViewProps> = ({ tripId }) => {
   const hasAlreadyReviewed = useMemo(() => {
       return context?.reviews.some(r => r.trip_id === tripId && r.reviewer_id === user?.id);
   }, [context?.reviews, tripId, user?.id]);
+
+  useEffect(() => {
+    // This effect runs when we get a preferenceId to render the payment button.
+    if (preferenceId) {
+        // Access the public key from Vite's environment variables
+        const publicKey = import.meta.env.VITE_MERCADO_PAGO_PUBLIC_KEY;
+        if (!publicKey) {
+            console.error("Mercado Pago public key is not set in environment variables (VITE_MERCADO_PAGO_PUBLIC_KEY).");
+            alert("Error de configuración: no se puede iniciar el proceso de pago.");
+            return;
+        }
+        const mp = new window.MercadoPago(publicKey, { locale: 'es-AR' });
+        mp.bricks().create("wallet", "wallet_container", {
+            initialization: {
+                preferenceId: preferenceId,
+            },
+            customization: {
+              texts: {
+                  valueProp: 'smart_option',
+              },
+           },
+        });
+    }
+  }, [preferenceId]);
   
-  const ADMIN_PAYMENT_INFO = 'fletapp.admin.mp';
+  // Este efecto verifica si el pago se completó al volver de Mercado Pago.
+  useEffect(() => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const paymentStatus = urlParams.get('payment_status');
+      const currentTripId = urlParams.get('trip_id');
+
+      if (paymentStatus === 'success' && currentTripId === tripId.toString()) {
+          context?.processPayment(tripId);
+          // Limpia la URL para evitar reprocesar el pago si el usuario recarga.
+          window.history.replaceState({}, document.title, window.location.pathname);
+      }
+  }, [tripId, context?.processPayment]);
+
+  const handlePayWithMercadoPago = async () => {
+      if (!trip) return;
+      setIsLoadingPayment(true);
+      try {
+          const { data, error } = await supabase.functions.invoke('mercadopago-proxy', {
+              body: { trip },
+          });
+
+          if (error) {
+              throw error;
+          }
+          
+          setPreferenceId(data.preferenceId);
+
+      } catch (error) {
+          console.error("Error al crear la preferencia de pago:", error);
+          alert("Error al iniciar el pago. Inténtalo de nuevo.");
+      } finally {
+          setIsLoadingPayment(false);
+      }
+  };
 
   if (!context) return <div className="p-8 text-center flex justify-center"><Spinner/></div>;
 
@@ -389,7 +336,6 @@ const TripStatusView: React.FC<TripStatusViewProps> = ({ tripId }) => {
   
   const handleStartTrip = async () => await context.startTrip(trip.id);
   const handleCompleteTrip = async () => await context.completeTrip(trip.id);
-  const handlePayment = async (id: number) => await context.processPayment(id);
   
   const statuses = [
       { key: 'requested' as TripStatus, label: 'Solicitado' },
@@ -408,9 +354,6 @@ const TripStatusView: React.FC<TripStatusViewProps> = ({ tripId }) => {
 
   return (
     <>
-    {isPaymentModalOpen && <PaymentModal trip={trip} onClose={() => setIsPaymentModalOpen(false)} onPaymentSuccess={handlePayment} onShowQr={() => { setIsPaymentModalOpen(false); setIsQrModalOpen(true); }} />}
-    {isQrModalOpen && <MercadoPagoQrModal trip={trip} onClose={() => setIsQrModalOpen(false)} onPaymentSuccess={handlePayment} />}
-
     <div className="container mx-auto p-4 md:p-8">
       <button onClick={handleBack} className="flex items-center gap-2 text-slate-300 hover:text-white transition mb-6 font-semibold staggered-child">
         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
@@ -535,17 +478,19 @@ const TripStatusView: React.FC<TripStatusViewProps> = ({ tripId }) => {
                         <Button onClick={handleCompleteTrip} className="w-full text-base animate-fadeSlideIn">Marcar como Entregado</Button>
                     )}
                     {user?.role === 'customer' && trip.status === 'completed' && (
-                        <>
-                            <Card className="bg-slate-800/60 border-slate-700 animate-fadeSlideIn">
-                                <h4 className="text-lg font-bold text-slate-100 mb-2">Información de Pago</h4>
-                                <p className="text-slate-400 mb-2">Para completar el servicio, por favor transfiere el monto final a la siguiente cuenta de Fletapp:</p>
-                                <div className="bg-slate-950/70 p-3 rounded-lg mt-2 text-center">
-                                    <p className="text-lg font-mono font-semibold text-amber-300">{ADMIN_PAYMENT_INFO}</p>
+                        <div className="animate-fadeSlideIn">
+                            {!preferenceId ? (
+                                <Button onClick={handlePayWithMercadoPago} isLoading={isLoadingPayment} className="w-full !py-4">
+                                    Pagar ${trip.final_price?.toLocaleString()} con Mercado Pago
+                                </Button>
+                            ) : (
+                                <div className="text-center">
+                                    <p className="text-sm text-slate-400 mb-4">Serás redirigido a Mercado Pago para completar la transacción.</p>
+                                    <div id="wallet_container"></div>
+                                    {isLoadingPayment && <Spinner />}
                                 </div>
-                                <p className="text-xs text-slate-500 mt-3">Una vez realizado el pago, presiona el botón de abajo para marcar el viaje como finalizado y notificar al sistema.</p>
-                            </Card>
-                            <Button onClick={() => setIsPaymentModalOpen(true)} className="w-full text-base animate-fadeSlideIn">He Realizado el Pago</Button>
-                        </>
+                            )}
+                        </div>
                     )}
                     {user?.role === 'driver' && trip.status === 'completed' && (
                          <div className="text-center p-4 bg-amber-500/10 rounded-lg border border-amber-500/20 animate-fadeSlideIn">
