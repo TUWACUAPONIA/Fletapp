@@ -136,43 +136,19 @@ const App: React.FC = () => {
   }, []);
 
   const registerUser = useCallback(async (newUser: Omit<Database['public']['Tables']['profiles']['Insert'], 'id'>, password: string): Promise<AuthError | null> => {
-    // Step 1: Sign up the user
-    const { data: authData, error: authError } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signUp({
         email: newUser.email,
         password: password,
-    });
-
-    if (authError) {
-        console.error("Error signing up:", authError);
-        return authError;
-    }
-
-    if (!authData.user) {
-        return { name: 'UserError', message: 'User was not created.' } as AuthError;
-    }
-
-    // Step 2: If sign-up is successful, invoke the edge function to create the profile
-    try {
-        const profileData: Database['public']['Tables']['profiles']['Insert'] = {
-            ...newUser,
-            id: authData.user.id, // Add the new user's ID
-        };
-
-        const { error: functionError } = await supabase.functions.invoke('create-profile', {
-            body: { profileData },
-        });
-
-        if (functionError) {
-            console.error('Error creating profile via function:', functionError);
-            return { name: 'FunctionError', message: functionError.message } as AuthError;
+        options: {
+            data: newUser // Pass profile data to be used by the trigger
         }
-    } catch (catchError: any) {
-        console.error('Caught error invoking profile creation function:', catchError);
-        return { name: 'FunctionInvokeError', message: catchError.message } as AuthError;
+    });
+    
+    if (error) {
+        console.error("Error signing up:", error);
     }
 
-    // If everything is successful
-    return null;
+    return error;
   }, []);
 
   const createTrip = useCallback(async (tripData: NewTrip) => {

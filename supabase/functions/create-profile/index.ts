@@ -43,9 +43,9 @@ Deno.serve(async (req) => {
       status: 200,
     })
   } catch (err) {
-    // Return an error message if something goes wrong
+    // Return the actual error message in the response body for easier debugging
     console.error('Error in function:', err.message)
-    return new Response(String(err?.message ?? err), {
+    return new Response(JSON.stringify({ error: err.message, details: err }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 400,
     })
