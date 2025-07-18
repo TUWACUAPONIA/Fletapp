@@ -136,49 +136,24 @@ const App: React.FC = () => {
   }, []);
 
   const registerUser = useCallback(async (newUser: Omit<Database['public']['Tables']['profiles']['Insert'], 'id'>, password: string): Promise<AuthError | null> => {
-    console.log("Initial profile data for registration:", newUser);
-
-    // Step 1: Sign up the user in Supabase Auth
-    const { data: authData, error: authError } = await supabase.auth.signUp({
+    console.log("Calling supabase.auth.signUp with email and options:", {
+        email: newUser.email,
+        options: { data: newUser }
+    });
+    const { error } = await supabase.auth.signUp({
         email: newUser.email,
         password: password,
+        options: {
+            data: newUser // Pass profile data to be used by the trigger
+        }
     });
-
-    if (authError) {
-        console.error("Error during auth signUp:", authError);
-        return authError;
+    console.log("supabase.auth.signUp returned error:", error);
+    
+    if (error) {
+        console.error("Error signing up:", error);
     }
 
-    if (!authData.user) {
-        console.error("Auth signUp succeeded but no user object returned.");
-        return { name: "RegistrationError", message: "No se pudo obtener el usuario después del registro." } as AuthError;
-    }
-
-    console.log("Auth user created successfully:", authData.user);
-
-    // Step 2: Create the profile by calling the Edge Function
-    const profileData = {
-        ...newUser,
-        id: authData.user.id, // Add the user ID from the auth response
-    };
-
-    console.log("Invoking 'create-profile' function with:", profileData);
-
-    const { data: functionResponse, error: functionError } = await supabase.functions.invoke('create-profile', {
-        body: { profileData },
-    });
-
-    if (functionError) {
-        console.error("Error invoking create-profile function:", functionError);
-        // Optional: Attempt to delete the user if profile creation fails to avoid orphaned auth users.
-        // await supabase.auth.api.deleteUser(authData.user.id);
-        return { name: "ProfileCreationError", message: `Error al crear el perfil: ${functionError.message}` } as AuthError;
-    }
-
-    console.log("'create-profile' function response:", functionResponse);
-
-    // The onAuthStateChange listener will automatically handle fetching the new profile.
-    return null;
+    return error;
   }, []);
 
   const createTrip = useCallback(async (tripData: NewTrip) => {
