@@ -1,17 +1,4 @@
-
-
-declare global {
-  // Manually define types for Vite environment variables to resolve TS errors.
-  interface ImportMetaEnv {
-    readonly VITE_GOOGLE_MAPS_API_KEY?: string;
-    readonly VITE_MERCADO_PAGO_PUBLIC_KEY?: string;
-  }
-
-  interface ImportMeta {
-    readonly env: ImportMetaEnv;
-  }
-}
-
+/// <reference types="vite/client" />
 
 import type { Database, UserRoleEnum, TripStatusEnum, VehicleTypeEnum } from './services/supabaseService';
 

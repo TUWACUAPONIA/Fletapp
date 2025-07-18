@@ -1,7 +1,11 @@
 
-
-
 import { createClient } from '@supabase/supabase-js';
+
+// --- Standalone Enum Types ---
+// This prevents circular type dependencies that cause resolution issues.
+export type TripStatusEnum = "requested" | "accepted" | "in_transit" | "completed" | "paid";
+export type UserRoleEnum = "customer" | "driver";
+export type VehicleTypeEnum = "Furgoneta" | "Furgón" | "Pick UP" | "Camión ligero" | "Camión pesado";
 
 // Define the database types for better type safety with Supabase
 export type Database = {
@@ -23,8 +27,8 @@ export type Database = {
           estimated_unload_time_min: number | null;
           driver_arrival_time_min: number | null;
           price: number | null;
-          status: Database["public"]["Enums"]["trip_status"];
-          suitable_vehicle_types: Database["public"]["Enums"]["vehicle_type"][] | null;
+          status: TripStatusEnum;
+          suitable_vehicle_types: VehicleTypeEnum[] | null;
           start_time: string | null;
           final_duration_min: number | null;
           final_price: number | null;
@@ -43,8 +47,8 @@ export type Database = {
           estimated_load_time_min?: number | null;
           estimated_unload_time_min?: number | null;
           price?: number | null;
-          status: Database["public"]["Enums"]["trip_status"];
-          suitable_vehicle_types?: Database["public"]["Enums"]["vehicle_type"][] | null;
+          status: TripStatusEnum;
+          suitable_vehicle_types?: VehicleTypeEnum[] | null;
         };
         Update: {
           customer_id?: string;
@@ -60,8 +64,8 @@ export type Database = {
           estimated_unload_time_min?: number | null;
           driver_arrival_time_min?: number | null;
           price?: number | null;
-          status?: Database["public"]["Enums"]["trip_status"];
-          suitable_vehicle_types?: Database["public"]["Enums"]["vehicle_type"][] | null;
+          status?: TripStatusEnum;
+          suitable_vehicle_types?: VehicleTypeEnum[] | null;
           start_time?: string | null;
           final_duration_min?: number | null;
           final_price?: number | null;
@@ -75,9 +79,9 @@ export type Database = {
           dni: string;
           phone: string;
           address: string;
-          role: Database["public"]["Enums"]["user_role"];
+          role: UserRoleEnum;
           vehicle: string | null;
-          vehicle_type: Database["public"]["Enums"]["vehicle_type"] | null;
+          vehicle_type: VehicleTypeEnum | null;
           capacity_kg: number | null;
           capacity_m3: number | null;
           service_radius_km: number | null;
@@ -91,9 +95,9 @@ export type Database = {
             dni: string;
             phone: string;
             address: string;
-            role: Database["public"]["Enums"]["user_role"];
+            role: UserRoleEnum;
             vehicle?: string | null;
-            vehicle_type?: Database["public"]["Enums"]["vehicle_type"] | null;
+            vehicle_type?: VehicleTypeEnum | null;
             capacity_kg?: number | null;
             capacity_m3?: number | null;
             service_radius_km?: number | null;
@@ -106,9 +110,9 @@ export type Database = {
           dni?: string;
           phone?: string;
           address?: string;
-          role?: Database["public"]["Enums"]["user_role"];
+          role?: UserRoleEnum;
           vehicle?: string | null;
-          vehicle_type?: Database["public"]["Enums"]["vehicle_type"] | null;
+          vehicle_type?: VehicleTypeEnum | null;
           capacity_kg?: number | null;
           capacity_m3?: number | null;
           service_radius_km?: number | null;
@@ -163,22 +167,15 @@ export type Database = {
       [_ in never]: never;
     };
     Enums: {
-      trip_status: "requested" | "accepted" | "in_transit" | "completed" | "paid";
-      user_role: "customer" | "driver";
-      vehicle_type: "Furgoneta" | "Furgón" | "Pick UP" | "Camión ligero" | "Camión pesado";
+      trip_status: TripStatusEnum;
+      user_role: UserRoleEnum;
+      vehicle_type: VehicleTypeEnum;
     };
     CompositeTypes: {
       [_ in never]: never;
     };
   };
 };
-
-
-// --- Standalone Enum Types (aliased for compatibility with other files) ---
-export type TripStatusEnum = Database["public"]["Enums"]["trip_status"];
-export type UserRoleEnum = Database["public"]["Enums"]["user_role"];
-export type VehicleTypeEnum = Database["public"]["Enums"]["vehicle_type"];
-
 
 // --- Supabase Client Initialization ---
 
