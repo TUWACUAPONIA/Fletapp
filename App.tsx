@@ -136,18 +136,19 @@ const App: React.FC = () => {
   }, []);
 
   const registerUser = useCallback(async (newUser: Omit<Database['public']['Tables']['profiles']['Insert'], 'id'>, password: string): Promise<AuthError | null> => {
-    const { data, error } = await supabase.auth.signUp({ email: newUser.email, password });
-    if (error) return error;
-
-    if (data.user) {
-        const profileData: Database['public']['Tables']['profiles']['Insert'] = { ...newUser, id: data.user.id };
-        const { error: profileError } = await supabase.from('profiles').insert([profileData]);
-        if (profileError) {
-            console.error("Error creating profile:", profileError);
-            return { message: profileError.message, name: 'ProfileError' } as AuthError; 
+    const { error } = await supabase.auth.signUp({
+        email: newUser.email,
+        password: password,
+        options: {
+            data: newUser // Pass all other profile data here
         }
+    });
+    
+    if (error) {
+        console.error("Error signing up:", error);
     }
-    return null;
+
+    return error;
   }, []);
 
   const createTrip = useCallback(async (tripData: NewTrip) => {
