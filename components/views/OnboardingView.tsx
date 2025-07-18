@@ -30,6 +30,7 @@ const OnboardingView: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    console.log("handleSubmit triggered"); // Debugging message
     setError('');
     setIsLoading(true);
 
@@ -80,6 +81,7 @@ const OnboardingView: React.FC = () => {
           payment_info: null,
         };
 
+    console.log("Attempting to register user:", userToRegister); // Debugging message
     const authError = await context.registerUser(userToRegister as Omit<Profile, 'id'>, data.password as string);
     if (authError) {
         setError(authError.message || "Ocurrió un error durante el registro.");
