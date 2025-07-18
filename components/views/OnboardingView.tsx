@@ -2,7 +2,7 @@
 
 
 
-import React, { useState, useContext, useRef } from 'react';
+import React, { useState, useContext, useRef, useEffect } from 'react';
 import { AppContext } from '../../AppContext';
 import { UserRole, Driver, Customer, Profile, VehicleType } from '../../types';
 import { Button, Input, Card, Icon, Select } from '../ui';
@@ -14,6 +14,12 @@ const OnboardingView: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  useEffect(() => {
+    // If the user is logged in when this view is rendered (i.e., after a successful registration), redirect to dashboard.
+    if (context?.user) {
+        context.setView('dashboard');
+    }
+  }, [context?.user, context?.setView]);
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {

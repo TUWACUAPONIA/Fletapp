@@ -47,7 +47,7 @@ const App: React.FC = () => {
         trips.forEach(newTrip => {
             const oldTrip = prevTripsRef.current.find(t => t.id === newTrip.id);
             if (oldTrip && oldTrip.status === 'requested' && newTrip.status === 'accepted' && newTrip.customer_id === user.id) {
-                const audio = new Audio('https://storage.googleapis.com/interactive-media-ads/media/bus-horn.mp3');
+                const audio = new Audio('/sounds/bus-horn.mp3');
                 audio.play().catch(e => console.error("Error playing horn sound:", e));
             }
         });
