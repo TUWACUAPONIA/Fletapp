@@ -81,12 +81,16 @@ const OnboardingView: React.FC = () => {
           payment_info: null,
         };
 
-    console.log("Attempting to register user:", userToRegister); // Debugging message
+    console.log("Calling registerUser context function with data:", userToRegister);
     const authError = await context.registerUser(userToRegister as Omit<Profile, 'id'>, data.password as string);
+    console.log("registerUser context function returned:", authError);
+
     if (authError) {
+        console.error("Registration failed with error:", authError);
         setError(authError.message || "Ocurrió un error durante el registro.");
+    } else {
+        console.log("Registration call successful, waiting for auth state change...");
     }
-    // On success, the App component will redirect to the dashboard via onAuthStateChange
     setIsLoading(false);
   };
 

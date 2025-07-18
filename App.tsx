@@ -136,6 +136,10 @@ const App: React.FC = () => {
   }, []);
 
   const registerUser = useCallback(async (newUser: Omit<Database['public']['Tables']['profiles']['Insert'], 'id'>, password: string): Promise<AuthError | null> => {
+    console.log("Calling supabase.auth.signUp with email and options:", {
+        email: newUser.email,
+        options: { data: newUser }
+    });
     const { error } = await supabase.auth.signUp({
         email: newUser.email,
         password: password,
@@ -143,6 +147,7 @@ const App: React.FC = () => {
             data: newUser // Pass profile data to be used by the trigger
         }
     });
+    console.log("supabase.auth.signUp returned error:", error);
     
     if (error) {
         console.error("Error signing up:", error);
