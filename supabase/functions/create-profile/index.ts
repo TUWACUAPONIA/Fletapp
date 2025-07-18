@@ -23,14 +23,17 @@ Deno.serve(async (req) => {
   try {
     // Get the profile data from the request body
     const { profileData } = await req.json()
+    console.log("Received profile data in function:", profileData);
 
     // Ensure the necessary data is present
     if (!profileData || !profileData.id) {
-      throw new Error('Profile data or user ID is missing.')
+      console.error("Validation failed: Profile data or user ID is missing.", profileData);
+      throw new Error('Profile data or user ID is missing.');
     }
 
+    console.log(`Attempting to insert profile for user ID: ${profileData.id}`);
     // Insert the new profile into the 'profiles' table
-    const { error } = await supabaseAdmin.from('profiles').insert(profileData)
+    const { error } = await supabaseAdmin.from('profiles').insert(profileData);
 
     if (error) {
       console.error('Error inserting profile:', error)
@@ -43,9 +46,10 @@ Deno.serve(async (req) => {
       status: 200,
     })
   } catch (err) {
+    const error = err instanceof Error ? err : new Error(String(err));
     // Return the actual error message in the response body for easier debugging
-    console.error('Error in function:', err.message)
-    return new Response(JSON.stringify({ error: err.message, details: err }), {
+    console.error('Error in function:', error.message)
+    return new Response(JSON.stringify({ error: error.message, details: error }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 400,
     })
