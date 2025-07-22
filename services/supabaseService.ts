@@ -179,13 +179,13 @@ export type Database = {
 
 // --- Supabase Client Initialization ---
 
-const supabaseUrl = 'https://xgzsfxngiurjxkxxbmdo.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhnenNmeG5naXVyanhreHhibWRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI1Nzk5MDIsImV4cCI6MjA2ODE1NTkwMn0.jRHz4iyo213_w9Rh33nDe_Mj53oz9FQOIjmcJ8wQy7g';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
   // In a real app, you'd want a more robust way to handle this,
   // maybe showing an error page, but for this context, throwing is fine.
-  throw new Error("Supabase URL or Key is not defined. Please check your environment variables.");
+  throw new Error("Supabase URL or Key is not defined. Please check your environment variables. Make sure to create a .env.local file and add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.");
 }
 
 // Create and export the Supabase client, correctly typed with the Database definition.
