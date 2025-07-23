@@ -34,7 +34,13 @@ export const Icon: React.FC<{ type: string; className?: string }> = ({ type, cla
     creditCard: <path d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6.75 2.25h3.375" strokeLinecap="round" strokeLinejoin="round" />,
     mercadoPago: <path d="M18.75 3.75H5.25C4.00736 3.75 3 4.75736 3 6V18C3 19.2426 4.00736 20.25 5.25 20.25H18.75C19.9926 20.25 21 19.2426 21 18V6C21 4.75736 19.9926 3.75 18.75 3.75ZM8.625 15.75L6 12L7.5 10.125L10.125 12.75L16.5 7.125L18 9L10.125 15.75H8.625Z" strokeLinecap="round" strokeLinejoin="round"/>,
     qrCode: <path d="M4 4h6v6H4V4zm8 0h6v6h-6V4zM4 14h6v6H4v-6zm8 3h2v2h-2v-2zm-3-3h2v2h-2v-2zm6 0h2v2h-2v-2zm-3 3h2v2h-2v-2zm3-3h2v2h-2v-2z" strokeLinecap="round" strokeLinejoin="round" />,
-    checkCircle: <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    checkCircle: <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />,
+    mapPin: (
+      <>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+      </>
+    )
   };
 
   return (
@@ -46,7 +52,7 @@ export const Icon: React.FC<{ type: string; className?: string }> = ({ type, cla
 
 // --- BUTTON ---
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'ghost';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'icon';
   isLoading?: boolean;
 }
 
@@ -57,7 +63,8 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     const variantClasses = {
       primary: 'fletapp-gold-gradient text-slate-900 shadow-amber-900/30 hover:shadow-amber-800/50 focus-visible:ring-amber-400',
       secondary: 'bg-slate-800/80 hover:bg-slate-700/80 text-slate-100 border border-slate-700 hover:border-slate-600 focus-visible:ring-slate-400',
-      ghost: 'bg-transparent hover:bg-slate-800/50 text-slate-200 focus-visible:ring-slate-400 shadow-none hover:shadow-none'
+      ghost: 'bg-transparent hover:bg-slate-800/50 text-slate-200 focus-visible:ring-slate-400 shadow-none hover:shadow-none',
+      icon: 'bg-transparent hover:bg-slate-800/50 text-slate-400 focus-visible:ring-slate-400 shadow-none hover:shadow-none !p-2 !rounded-full'
     };
     
     const createRipple = (event: React.MouseEvent<HTMLButtonElement>) => {

@@ -10,6 +10,7 @@ import { AppContext } from '../../AppContext';
 import { UserRole, Trip, TripStatus, Driver, VehicleType, NewTrip } from '../../types';
 import { Button, Input, Card, Icon, Spinner, SkeletonCard } from '../ui';
 import { getTripEstimates } from '../../services/geminiService';
+import AddressMap from '../AddressMap';
 
 const SectionHeader: React.FC<{children: React.ReactNode, className?: string, style?: React.CSSProperties}> = ({ children, className, style }) => (
     <h3 className={`text-2xl font-bold mb-4 text-slate-100 border-b-2 border-slate-800/70 pb-2 ${className}`} style={style}>{children}</h3>
@@ -20,6 +21,8 @@ const CustomerDashboard: React.FC = () => {
   const [newTrip, setNewTrip] = useState<Partial<NewTrip>>({});
   const [isCalculating, setIsCalculating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [showMap, setShowMap] = useState(false);
+  const [editingField, setEditingField] = useState<'origin' | 'destination' | null>(null);
 
   const customerTrips = useMemo(() => {
     return context?.trips.filter(t => t.customer_id === context.user?.id) || [];
@@ -72,15 +75,44 @@ const CustomerDashboard: React.FC = () => {
     setNewTrip({});
   };
 
+  const handleLocationSelect = async (lat: number, lng: number) => {
+    if (editingField) {
+      // Reverse geocode to get address
+      try {
+        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+        const data = await response.json();
+        const address = data.display_name || `${lat}, ${lng}`;
+        setNewTrip(p => ({ ...p, [editingField]: address }));
+      } catch (error) {
+        console.error("Error reverse geocoding:", error);
+        setNewTrip(p => ({ ...p, [editingField]: `${lat}, ${lng}` }));
+      }
+    }
+    setShowMap(false);
+    setEditingField(null);
+  };
+
+  const openMapFor = (field: 'origin' | 'destination') => {
+    setEditingField(field);
+    setShowMap(true);
+  };
+
   return (
     <div className="grid lg:grid-cols-5 gap-8">
+      {showMap && <AddressMap onLocationSelect={handleLocationSelect} onClose={() => setShowMap(false)} />}
       <div className="lg:col-span-2">
           <div className="staggered-child" style={{animationDelay: '0.2s'}}>
             <Card>
                 <h3 className="text-2xl font-bold mb-6 text-slate-100">Solicitar un Flete</h3>
                 <form onSubmit={handleRequest} className="space-y-5">
-                <Input label="Origen" name="origin" value={newTrip.origin || ''} onChange={e => setNewTrip(p => ({...p, origin: e.target.value}))} required/>
-                <Input label="Destino" name="destination" value={newTrip.destination || ''} onChange={e => setNewTrip(p => ({...p, destination: e.target.value}))} required/>
+                <div className="relative">
+                  <Input label="Origen" name="origin" value={newTrip.origin || ''} onChange={e => setNewTrip(p => ({...p, origin: e.target.value}))} required/>
+                  <Button type="button" variant="icon" className="absolute right-2 top-8" onClick={() => openMapFor('origin')}><Icon type="mapPin" /></Button>
+                </div>
+                <div className="relative">
+                  <Input label="Destino" name="destination" value={newTrip.destination || ''} onChange={e => setNewTrip(p => ({...p, destination: e.target.value}))} required/>
+                  <Button type="button" variant="icon" className="absolute right-2 top-8" onClick={() => openMapFor('destination')}><Icon type="mapPin" /></Button>
+                </div>
                 <Input label="Detalles de la Carga" name="cargo_details" value={newTrip.cargo_details || ''} onChange={e => setNewTrip(p => ({...p, cargo_details: e.target.value}))} required/>
                 <div className="grid grid-cols-2 gap-4">
                     <Input label="Peso Estimado (kg)" name="estimated_weight_kg" type="number" value={newTrip.estimated_weight_kg || ''} onChange={e => setNewTrip(p => ({...p, estimated_weight_kg: Number(e.target.value)}))} required/>
