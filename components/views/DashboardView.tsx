@@ -386,6 +386,22 @@ const TripCard: React.FC<{ trip: Trip, animationDelay?: string }> = ({ trip, ani
                         <Button onClick={handleAccept} className="w-full" isLoading={isAccepting}>Aceptar Viaje</Button>
                     </div>
                 )}
+                {user?.role === 'customer' && trip.status === 'requested' && (
+                    <div className="mt-4 pt-4 border-t border-slate-800">
+                        <Button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if (window.confirm('¿Estás seguro de que quieres cancelar este flete?')) {
+                                    context?.deleteTrip(trip.id);
+                                }
+                            }}
+                            variant="danger"
+                            className="w-full"
+                        >
+                            Cancelar Flete
+                        </Button>
+                    </div>
+                )}
             </Card>
         </div>
     );

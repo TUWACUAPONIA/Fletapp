@@ -269,6 +269,31 @@ const App: React.FC = () => {
     }
   }, [fetchAllData]);
 
+  const deleteTrip = useCallback(async (tripId: number) => {
+    const currentUser = userRef.current;
+    if (!currentUser || currentUser.role !== 'customer') return;
+
+    const tripToDelete = tripsRef.current.find(t => t.id === tripId);
+    if (!tripToDelete) {
+      console.error("Trip not found");
+      return;
+    }
+
+    if (tripToDelete.customer_id !== currentUser.id || tripToDelete.status !== 'requested') {
+      alert("No puedes cancelar este viaje. Ya ha sido aceptado o no te pertenece.");
+      return;
+    }
+    
+    const { error } = await supabase.from('trips').delete().eq('id', tripId);
+
+    if (error) {
+      console.error("Error deleting trip:", error);
+      alert("Hubo un error al cancelar el viaje.");
+    } else {
+      await fetchAllData(); // Refresh the list
+    }
+  }, [fetchAllData]);
+
   const viewTripDetails = useCallback((tripId: number) => {
     setActiveTripId(tripId);
     setView('tripStatus');
@@ -293,13 +318,14 @@ const App: React.FC = () => {
     startTrip,
     completeTrip,
     processPayment,
+    deleteTrip,
     viewTripDetails,
     sendChatMessage,
     submitReview,
     viewDriverProfile,
     logout,
     activeDriverId,
-  }), [user, users, trips, reviews, view, setView, loginUser, registerUser, createTrip, acceptTrip, startTrip, completeTrip, processPayment, viewTripDetails, sendChatMessage, submitReview, viewDriverProfile, logout, activeDriverId]);
+  }), [user, users, trips, reviews, view, setView, loginUser, registerUser, createTrip, acceptTrip, startTrip, completeTrip, processPayment, deleteTrip, viewTripDetails, sendChatMessage, submitReview, viewDriverProfile, logout, activeDriverId]);
 
   const Header = () => {
     const [scrolled, setScrolled] = useState(false);

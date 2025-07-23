@@ -52,7 +52,7 @@ export const Icon: React.FC<{ type: string; className?: string }> = ({ type, cla
 
 // --- BUTTON ---
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'ghost' | 'icon';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'icon' | 'danger';
   isLoading?: boolean;
 }
 
@@ -64,6 +64,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       primary: 'fletapp-gold-gradient text-slate-900 shadow-amber-900/30 hover:shadow-amber-800/50 focus-visible:ring-amber-400',
       secondary: 'bg-slate-800/80 hover:bg-slate-700/80 text-slate-100 border border-slate-700 hover:border-slate-600 focus-visible:ring-slate-400',
       ghost: 'bg-transparent hover:bg-slate-800/50 text-slate-200 focus-visible:ring-slate-400 shadow-none hover:shadow-none',
+      danger: 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 hover:border-rose-500/30 focus-visible:ring-rose-400',
       icon: 'bg-transparent hover:bg-slate-800/50 text-slate-400 focus-visible:ring-slate-400 shadow-none hover:shadow-none !p-2 !rounded-full'
     };
     

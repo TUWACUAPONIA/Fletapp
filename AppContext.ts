@@ -20,6 +20,7 @@ export interface AppContextType {
   startTrip: (tripId: number) => Promise<void>;
   completeTrip: (tripId: number) => Promise<void>;
   processPayment: (tripId: number) => Promise<void>;
+  deleteTrip: (tripId: number) => Promise<void>;
   viewTripDetails: (tripId: number) => void;
   sendChatMessage: (tripId: number, content: string) => Promise<void>;
   submitReview: (tripId: number, driverId: string, rating: number, comment: string) => Promise<void>;
