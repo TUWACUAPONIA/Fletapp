@@ -9,7 +9,7 @@ import React, { useContext, useState, useMemo, useEffect, useRef } from 'react';
 import { AppContext } from '../../AppContext';
 import { UserRole, Trip, TripStatus, Driver, VehicleType, NewTrip } from '../../types';
 import { Button, Input, Card, Icon, Spinner, SkeletonCard } from '../ui';
-import { getTripEstimates } from '../../services/geminiService';
+import { getTripDetails } from '../../services/googleMapsService';
 import AddressMap from '../AddressMap';
 import AutocompleteInput from '../AutocompleteInput';
 
@@ -20,6 +20,7 @@ const SectionHeader: React.FC<{children: React.ReactNode, className?: string, st
 const CustomerDashboard: React.FC = () => {
   const context = useContext(AppContext);
   const [newTrip, setNewTrip] = useState<Partial<NewTrip>>({});
+  const [selectedVehicle, setSelectedVehicle] = useState<VehicleType>('Furgoneta');
   const [isCalculating, setIsCalculating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [showMap, setShowMap] = useState(false);
@@ -36,31 +37,51 @@ const CustomerDashboard: React.FC = () => {
 
 
   const handleCalculate = async () => {
-    if (!newTrip.origin || !newTrip.destination || !newTrip.cargo_details) {
-      alert("Por favor, ingresa origen, destino y detalles de la carga.");
+    if (!newTrip.origin || !newTrip.destination) {
+      alert("Por favor, ingresa un origen y un destino.");
       return;
     }
     setIsCalculating(true);
-    const estimates = await getTripEstimates(newTrip.origin, newTrip.destination, newTrip.cargo_details);
-    if (estimates) {
-      const { distanceKm, estimatedDriveTimeMin, estimatedLoadTimeMin, estimatedUnloadTimeMin } = estimates;
-      const totalMinutes = (estimatedDriveTimeMin || 0) + (estimatedLoadTimeMin || 0) + (estimatedUnloadTimeMin || 0);
-      // Pricing logic rounds up to the next full hour.
-      const totalHours = Math.ceil(totalMinutes / 60);
-      const timeCost = totalHours * 22000;
-      const distanceBonus = (distanceKm || 0) > 30 ? 20000 : 0;
-      const price = timeCost + distanceBonus;
 
-      setNewTrip(prev => ({ 
-          ...prev, 
-          distance_km: distanceKm, 
-          estimated_drive_time_min: estimatedDriveTimeMin, 
-          estimated_load_time_min: estimatedLoadTimeMin, 
-          estimated_unload_time_min: estimatedUnloadTimeMin, 
-          price: Math.round(price) 
+    const details = await getTripDetails(newTrip.origin, newTrip.destination);
+    
+    if (details) {
+      const { distanceMeters, durationSeconds } = details;
+      const distanceKm = distanceMeters / 1000;
+      const estimatedDriveTimeMin = Math.round(durationSeconds / 60);
+
+      // Simplified load/unload time estimation
+      const estimatedLoadTimeMin = 30;
+      const estimatedUnloadTimeMin = 30;
+
+      // New pricing logic based on vehicle type
+      const vehicleRates: Record<VehicleType, { base: number, perKm: number, perHour: number }> = {
+        'Furgoneta': { base: 5000, perKm: 150, perHour: 15000 },
+        'Furgón': { base: 7000, perKm: 200, perHour: 20000 },
+        'Pick UP': { base: 6000, perKm: 180, perHour: 18000 },
+        'Camión ligero': { base: 10000, perKm: 250, perHour: 25000 },
+        'Camión pesado': { base: 15000, perKm: 350, perHour: 35000 },
+      };
+
+      const rate = vehicleRates[selectedVehicle];
+      const totalMinutes = estimatedDriveTimeMin + estimatedLoadTimeMin + estimatedUnloadTimeMin;
+      const totalHours = totalMinutes / 60;
+
+      const distanceCost = distanceKm * rate.perKm;
+      const timeCost = totalHours * rate.perHour;
+      const price = rate.base + distanceCost + timeCost;
+
+      setNewTrip(prev => ({
+        ...prev,
+        distance_km: distanceKm,
+        estimated_drive_time_min: estimatedDriveTimeMin,
+        estimated_load_time_min: estimatedLoadTimeMin,
+        estimated_unload_time_min: estimatedUnloadTimeMin,
+        price: Math.round(price),
+        suitable_vehicle_types: [selectedVehicle] // Set the selected vehicle
       }));
     } else {
-        alert("No se pudo calcular la estimación. Verifique que la clave de API esté configurada correctamente y que los detalles del viaje sean válidos.");
+      alert("No se pudo calcular la ruta. Por favor, verifica las direcciones e intenta de nuevo.");
     }
     setIsCalculating(false);
   };
@@ -134,6 +155,21 @@ const CustomerDashboard: React.FC = () => {
                     <Input label="Peso Estimado (kg)" name="estimated_weight_kg" type="number" value={newTrip.estimated_weight_kg || ''} onChange={e => setNewTrip(p => ({...p, estimated_weight_kg: Number(e.target.value)}))} required/>
                     <Input label="Volumen Estimado (m³)" name="estimated_volume_m3" type="number" step="0.1" value={newTrip.estimated_volume_m3 || ''} onChange={e => setNewTrip(p => ({...p, estimated_volume_m3: Number(e.target.value)}))} required/>
                 </div>
+                <div>
+                  <label htmlFor="vehicle-select" className="block text-sm font-medium text-slate-300 mb-1">Tipo de Vehículo</label>
+                  <select
+                    id="vehicle-select"
+                    className="w-full bg-slate-900/70 border border-slate-700 rounded-md p-2.5 text-white focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                    value={selectedVehicle}
+                    onChange={e => setSelectedVehicle(e.target.value as VehicleType)}
+                  >
+                    <option value="Furgoneta">Furgoneta</option>
+                    <option value="Furgón">Furgón</option>
+                    <option value="Pick UP">Pick UP</option>
+                    <option value="Camión ligero">Camión Ligero</option>
+                    <option value="Camión pesado">Camión Pesado</option>
+                  </select>
+                </div>
                 {newTrip.price ? (
                     <div className="animate-fadeSlideIn">
                       <Card className="bg-slate-950/50 !p-4 border-slate-700/70">
@@ -159,7 +195,7 @@ const CustomerDashboard: React.FC = () => {
                       </Card>
                     </div>
                 ) : (
-                    <Button type="button" onClick={handleCalculate} isLoading={isCalculating} variant="secondary" className="w-full">Calcular Viaje y Precio (IA)</Button>
+                    <Button type="button" onClick={handleCalculate} isLoading={isCalculating} variant="secondary" className="w-full">Calcular Viaje y Precio</Button>
                 )}
                 <Button type="submit" disabled={!newTrip.price || isCalculating} className="w-full !mt-6 !py-3.5">Solicitar Flete</Button>
                 </form>
