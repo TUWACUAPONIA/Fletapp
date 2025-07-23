@@ -25,6 +25,15 @@ const LocationPicker: React.FC<{ setPosition: (position: L.LatLng) => void }> = 
   return null;
 };
 
+const MapResizer: React.FC = () => {
+    const map = useMapEvents({
+        load: () => {
+            setTimeout(() => map.invalidateSize(), 100);
+        }
+    });
+    return null;
+}
+
 const AddressMap: React.FC<AddressMapProps> = ({ onLocationSelect, onClose }) => {
   const [position, setPosition] = useState<L.LatLng | null>(null);
   const [mapCenter, setMapCenter] = useState<[number, number]>([-34.6037, -58.3816]); // Default to Buenos Aires
@@ -59,6 +68,7 @@ const AddressMap: React.FC<AddressMapProps> = ({ onLocationSelect, onClose }) =>
                 />
                 <LocationPicker setPosition={setPosition} />
                 {position && <Marker position={position}></Marker>}
+                <MapResizer />
             </MapContainer>
         </div>
         <div className="flex justify-end gap-4 mt-4">
