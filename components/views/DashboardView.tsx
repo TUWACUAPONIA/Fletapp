@@ -11,6 +11,7 @@ import { UserRole, Trip, TripStatus, Driver, VehicleType, NewTrip } from '../../
 import { Button, Input, Card, Icon, Spinner, SkeletonCard } from '../ui';
 import { getTripEstimates } from '../../services/geminiService';
 import AddressMap from '../AddressMap';
+import AutocompleteInput from '../AutocompleteInput';
 
 const SectionHeader: React.FC<{children: React.ReactNode, className?: string, style?: React.CSSProperties}> = ({ children, className, style }) => (
     <h3 className={`text-2xl font-bold mb-4 text-slate-100 border-b-2 border-slate-800/70 pb-2 ${className}`} style={style}>{children}</h3>
@@ -92,6 +93,11 @@ const CustomerDashboard: React.FC = () => {
     setEditingField(null);
   };
 
+  const handlePlaceSelected = (field: 'origin' | 'destination', place: google.maps.places.PlaceResult) => {
+    const address = place.formatted_address || '';
+    setNewTrip(p => ({ ...p, [field]: address }));
+  };
+
   const openMapFor = (field: 'origin' | 'destination') => {
     setEditingField(field);
     setShowMap(true);
@@ -106,12 +112,22 @@ const CustomerDashboard: React.FC = () => {
                 <h3 className="text-2xl font-bold mb-6 text-slate-100">Solicitar un Flete</h3>
                 <form onSubmit={handleRequest} className="space-y-5">
                 <div className="relative">
-                  <Input label="Origen" name="origin" value={newTrip.origin || ''} onChange={e => setNewTrip(p => ({...p, origin: e.target.value}))} required/>
-                  <Button type="button" variant="icon" className="absolute right-2 top-8" onClick={() => openMapFor('origin')}><Icon type="mapPin" /></Button>
+                  <AutocompleteInput
+                    label="Origen"
+                    value={newTrip.origin || ''}
+                    onChange={value => setNewTrip(p => ({ ...p, origin: value }))}
+                    onPlaceSelected={place => handlePlaceSelected('origin', place)}
+                  />
+                  <Button type="button" variant="icon" className="absolute right-2 top-9" onClick={() => openMapFor('origin')}><Icon type="mapPin" /></Button>
                 </div>
                 <div className="relative">
-                  <Input label="Destino" name="destination" value={newTrip.destination || ''} onChange={e => setNewTrip(p => ({...p, destination: e.target.value}))} required/>
-                  <Button type="button" variant="icon" className="absolute right-2 top-8" onClick={() => openMapFor('destination')}><Icon type="mapPin" /></Button>
+                  <AutocompleteInput
+                    label="Destino"
+                    value={newTrip.destination || ''}
+                    onChange={value => setNewTrip(p => ({ ...p, destination: value }))}
+                    onPlaceSelected={place => handlePlaceSelected('destination', place)}
+                  />
+                  <Button type="button" variant="icon" className="absolute right-2 top-9" onClick={() => openMapFor('destination')}><Icon type="mapPin" /></Button>
                 </div>
                 <Input label="Detalles de la Carga" name="cargo_details" value={newTrip.cargo_details || ''} onChange={e => setNewTrip(p => ({...p, cargo_details: e.target.value}))} required/>
                 <div className="grid grid-cols-2 gap-4">
