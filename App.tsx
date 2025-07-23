@@ -13,7 +13,6 @@ import DashboardView from './components/views/DashboardView';
 import RankingsView from './components/views/RankingsView';
 import TripStatusView from './components/views/TripStatusView';
 import DriverProfileView from './components/views/DriverProfileView';
-import { getDriverEta, getSuitableVehicleTypes } from './services/geminiService';
 import { supabase, type Database } from './services/supabaseService';
 import { Spinner } from './components/ui';
 import { AppContext, AppContextType } from './AppContext';
@@ -160,18 +159,12 @@ const App: React.FC = () => {
     const currentUser = userRef.current;
     if (!currentUser || currentUser.role !== 'customer') return;
     
-    // AI call to determine suitable vehicle types
-    const suitableTypes = await getSuitableVehicleTypes(tripData.cargo_details);
-    // Fallback: If AI fails, allow all vehicle types to see the trip to not block the user.
-    const vehicleTypeValues: VehicleType[] = ['Furgoneta', 'Furgón', 'Pick UP', 'Camión ligero', 'Camión pesado'];
-    const suitable_vehicle_types = suitableTypes ?? vehicleTypeValues;
-
     const tripToInsert: Database['public']['Tables']['trips']['Insert'] = {
         ...tripData,
         customer_id: currentUser.id,
         status: 'requested',
         driver_id: null,
-        suitable_vehicle_types: suitable_vehicle_types,
+        // The suitable_vehicle_types are now set directly from the user's selection in DashboardView
     };
 
     const { error } = await supabase.from('trips').insert([tripToInsert]);
@@ -186,12 +179,10 @@ const App: React.FC = () => {
     const tripToAccept = tripsRef.current.find(t => t.id === tripId);
     if (!tripToAccept) return;
     
-    const eta = await getDriverEta(driver.address, tripToAccept.origin);
-
-    const updatePayload: Database['public']['Tables']['trips']['Update'] = { 
-        status: 'accepted', 
+    const updatePayload: Database['public']['Tables']['trips']['Update'] = {
+        status: 'accepted',
         driver_id: currentUser.id,
-        driver_arrival_time_min: eta
+        driver_arrival_time_min: null // ETA calculation removed for now
     };
 
     const { error } = await supabase.from('trips').update(updatePayload).eq('id', tripId);
